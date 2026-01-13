@@ -17,7 +17,7 @@ export default function AdminLayout() {
             {/* Sidebar */}
             <aside className="w-64 bg-white border-r border-gray-200 hidden md:flex flex-col">
                 <div className="p-6 border-b border-gray-100">
-                    <h1 className="text-xl font-bold text-blue-900">Clinic Admin</h1>
+                    <h1 className="text-lg font-bold text-blue-900 leading-tight">Özel Kurtbeyoğlu Ağız ve Diş Sağlığı Polikliniği</h1>
                 </div>
 
                 <nav className="flex-1 p-4 space-y-2">
