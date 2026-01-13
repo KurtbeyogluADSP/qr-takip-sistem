@@ -40,8 +40,12 @@ export default function AdminDashboard() {
             </div>
 
             <div className="bg-white p-6 rounded-lg shadow-sm border border-gray-100">
-                <h2 className="text-lg font-semibold mb-4">Live Activity</h2>
-                <p className="text-gray-500 text-sm">Real-time feed coming soon...</p>
+                <h2 className="text-lg font-semibold mb-4">Quick Actions</h2>
+                <div className="flex flex-wrap gap-4">
+                    <a href="/admin/re-entry" className="inline-flex items-center gap-2 bg-blue-600 text-white px-5 py-3 rounded-xl hover:bg-blue-700 transition-colors font-medium shadow-sm">
+                        Generate Re-entry QR
+                    </a>
+                </div>
             </div>
         </div>
     );

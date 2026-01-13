@@ -3,6 +3,7 @@ export type Profile = {
     email: string;
     full_name: string;
     role: 'admin' | 'assistant';
+    is_locked_out?: boolean;
     created_at: string;
 };
 
@@ -30,6 +31,8 @@ export type Task = {
 export type QRCodeToken = {
     id: string;
     token: string;
-    type: 'kiosk_daily' | 'admin_reentry';
+    type: 'kiosk_daily' | 'admin_reentry' | 're_entry';
     expires_at: string;
+    assigned_user_id?: string;
+    used_at?: string;
 };
