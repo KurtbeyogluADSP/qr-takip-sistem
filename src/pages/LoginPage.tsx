@@ -56,64 +56,34 @@ export default function LoginPage() {
         // console.warn(error);
     };
 
-    const handleQRLogin = async (token: string) => {
+    const handleQRLogin = async (emailInfo: string, tempPass: string) => {
         setError(null);
         try {
-            // 1. Verify Token on Backend (via RPC or direct query if RLS allows specific unauth access?)
-            // Challenge: Unauthenticated user cannot query 'qr_tokens' easily if RLS blocks it.
-            // Solution: We need a Supabase Edge Function OR a specific public-facing RPC to validation.
-            // FOR MVP without Edge Functions: 
-            // We'll trust the Client to find the user_id linked to this token (if public read allowed for re-entry tokens)
-            // Actually, per SOP 'users can read their own re-entry tokens'.
-            // But here we are NOT logged in.
-            // FIX: We need a workaround. Let's assume there's a simple API or we temporarily allow public read for 're_entry' tokens that are active.
-            // OR checks happen post-scan.
-            // Let's rely on standard Auth if possible. If not, this flow effectively needs a 'Magic Link' equivalent.
-            // Since we can't implement Magic Link easily without Email, we will simulate it:
-            // The QR code contains the 'userId' logic or matches a record.
+            const { data: authData, error } = await supabase.auth.signInWithPassword({
+                email: emailInfo,
+                password: tempPass,
+            });
 
-            // For now, let's assume the QR validates and auto-logs in via a backend mechanism we simulated.
-            // Since we don't have a backend 'LoginByToken' endpoint, we might be stuck.
-            // WAIT. The conversation mentions "Admin QR allows login".
-            // Implementation: The QR Token acts as a one-time password.
-            // Does the user have a static password? Yes. "şifre dinamik olsun".
-            // Maybe we just Reset Password to the Token? Risks?
-            // BETTER: Admin QR contains a temporary password?
-            // Let's try: Token in DB has 'assigned_user_id'.
-            // We need to 'signInWithPassword' but we don't know the password.
-
-            // ALTERNATIVE: Use Supabase 'signInWithOtp' (Email OTP). 
-            // Admin triggers OTP -> User gets code? No, user scans QR. 
-            // QR = The OTP.
-            // If Supabase supports 'verified token', good.
-
-            // FALLBACK FOR DEMO:
-            // We query the DB for the token (need public read on qr_tokens for validation OR admin function).
-            // If valid, we manually set the session (if we have access tokens) OR
-            // we tell the user "Login with this temporary password: [Token-Suffix]".
-            // This is complex for Client-only.
-
-            // Let's stick to the simplest flow that works and is secure-ish for MVP:
-            // 1. Admin generates QR. QR Value = "MAGIC_LOGIN:USER_ID:SECRET"
-            // 2. We use an RPC 'login_with_qr(token)' that returns a Session.
-            // I will create that RPC next.
-
-            const { data, error } = await supabase.rpc('login_with_qr', { token_input: token });
             if (error) throw error;
 
-            // If success, set session
-            if (data?.session) {
-                const { error: sessionError } = await supabase.auth.setSession(data.session);
-                if (sessionError) throw sessionError;
-                navigate('/admin'); // or /assistant/tasks
-            } else {
-                throw new Error("Invalid Session Data");
+            if (authData.user) {
+                const { data: profile } = await supabase
+                    .from('users')
+                    .select('is_locked_out')
+                    .eq('id', authData.user.id)
+                    .single();
+
+                if (profile?.is_locked_out) {
+                    await supabase.auth.signOut();
+                    throw new Error("Account is locked. Please use Admin Re-entry QR.");
+                }
             }
 
+            navigate('/admin');
         } catch (err: any) {
             console.error(err);
             setError(err.message || 'QR Login Failed');
-            setScanResult(null); // Allow retry
+            setScanResult(null);
         }
     };
 
@@ -121,11 +91,26 @@ export default function LoginPage() {
         e.preventDefault();
         setError(null);
         try {
-            const { error } = await supabase.auth.signInWithPassword({
+            const { data: authData, error } = await supabase.auth.signInWithPassword({
                 email,
                 password,
             });
             if (error) throw error;
+
+            // Check if user is locked out
+            if (authData.user) {
+                const { data: profile } = await supabase
+                    .from('users')
+                    .select('is_locked_out')
+                    .eq('id', authData.user.id)
+                    .single();
+
+                if (profile?.is_locked_out) {
+                    await supabase.auth.signOut();
+                    throw new Error("Account is locked. Please use Admin Re-entry QR.");
+                }
+            }
+
             navigate('/admin');
         } catch (err: any) {
             setError(err.message || 'Authentication failed');

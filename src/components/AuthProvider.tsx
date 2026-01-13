@@ -64,6 +64,15 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     };
 
     const signOut = async () => {
+        // Enforce Strict Re-entry for Assistants
+        if (profile?.role === 'assistant') {
+            try {
+                // We lock them out before signing out
+                await supabase.rpc('lock_current_user');
+            } catch (err) {
+                console.error("Failed to lock user on logout:", err);
+            }
+        }
         await supabase.auth.signOut();
         setUser(null);
         setProfile(null);
