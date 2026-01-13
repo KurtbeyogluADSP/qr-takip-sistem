@@ -8,9 +8,8 @@ import AssistantScan from './pages/AssistantScan';
 
 import AssistantTasks from './pages/AssistantTasks';
 
-// Placeholders for now
-const Login = () => <div className="p-10 text-center">Login Page (Coming Soon)</div>;
-const AdminDashboard = () => <div className="p-10">Admin Dashboard (Coming Soon)</div>;
+import Login from './pages/LoginPage';
+import AdminDashboard from './pages/AdminDashboard';
 
 function App() {
   return (
@@ -27,6 +26,7 @@ function App() {
           <Route path="/admin" element={<AdminLayout />}>
             <Route index element={<AdminDashboard />} />
           </Route>
+
 
           {/* Assistant Routes */}
           <Route path="/assistant" element={<AssistantLayout />}>
