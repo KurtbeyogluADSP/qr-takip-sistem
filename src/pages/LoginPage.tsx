@@ -9,21 +9,33 @@ export default function LoginPage() {
     const navigate = useNavigate();
     const [email, setEmail] = useState('');
     const [password, setPassword] = useState('');
+    const [isSignUp, setIsSignUp] = useState(false);
     const [error, setError] = useState<string | null>(null);
 
     const handleSubmit = async (e: React.FormEvent) => {
         e.preventDefault();
         setError(null);
         try {
-            const { error } = await supabase.auth.signInWithPassword({
-                email,
-                password,
-            });
-            if (error) throw error;
-            // AuthProvider handles state, we just navigate or let it redirect
-            navigate('/admin'); // Default to admin for now, or check role
+            if (isSignUp) {
+                const { error } = await supabase.auth.signUp({
+                    email,
+                    password,
+                });
+                if (error) throw error;
+                // For Supabase, usually you are logged in after signUp unless email confirm is on.
+                // If email confirm is on, check data.session check.
+                // Assuming auto-login for now:
+                navigate('/admin');
+            } else {
+                const { error } = await supabase.auth.signInWithPassword({
+                    email,
+                    password,
+                });
+                if (error) throw error;
+                navigate('/admin');
+            }
         } catch (err: any) {
-            setError(err.message || 'Login failed');
+            setError(err.message || 'Authentication failed');
         }
     };
 
@@ -34,7 +46,9 @@ export default function LoginPage() {
                     <div className="mx-auto h-12 w-12 bg-blue-100 rounded-full flex items-center justify-center">
                         <LogIn className="h-6 w-6 text-blue-600" />
                     </div>
-                    <h2 className="mt-6 text-3xl font-extrabold text-gray-900">Sign in to your account</h2>
+                    <h2 className="mt-6 text-3xl font-extrabold text-gray-900">
+                        {isSignUp ? 'Create an account' : 'Sign in to your account'}
+                    </h2>
                     <p className="mt-2 text-sm text-gray-600">
                         Or access the <a href="/kiosk" className="font-medium text-blue-600 hover:text-blue-500">Kiosk Display</a>
                     </p>
@@ -81,7 +95,17 @@ export default function LoginPage() {
                             disabled={isLoading}
                             className="group relative w-full flex justify-center py-2 px-4 border border-transparent text-sm font-medium rounded-md text-white bg-blue-600 hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500 disabled:opacity-50"
                         >
-                            {isLoading ? 'Signing in...' : 'Sign in'}
+                            {isLoading ? 'Processing...' : (isSignUp ? 'Sign Up' : 'Sign In')}
+                        </button>
+                    </div>
+
+                    <div className="text-center">
+                        <button
+                            type="button"
+                            onClick={() => setIsSignUp(!isSignUp)}
+                            className="text-sm text-blue-600 hover:text-blue-500"
+                        >
+                            {isSignUp ? 'Already have an account? Sign in' : "Don't have an account? Sign up"}
                         </button>
                     </div>
                 </form>
