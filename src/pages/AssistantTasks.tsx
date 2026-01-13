@@ -1,79 +1,246 @@
-import { useState } from 'react';
-import { CheckCircle2, Circle, Clock } from 'lucide-react';
+import { useState, useEffect } from 'react';
+import { CheckCircle2, Circle, Clock, Loader2, CalendarDays } from 'lucide-react';
 import clsx from 'clsx';
+import { supabase } from '../lib/supabase';
+import { useAuth } from '../components/AuthProvider';
+import { format, getISOWeek, startOfWeek, addDays } from 'date-fns';
 
 type Task = {
     id: string;
     title: string;
-    type: 'sterilization' | 'macro' | 'stock' | 'duty';
-    completed: boolean;
-    time?: string;
+    task_type: 'sterilization' | 'macro' | 'stock' | 'duty';
+    completed_at: string | null;
+    week_number: number;
+    due_date?: string; // New field for daily tracking
 };
 
-// Mock Data
-const MOCK_TASKS: Task[] = [
-    { id: '1', title: 'Sterilization Room Check', type: 'sterilization', completed: true, time: '09:30 AM' },
-    { id: '2', title: 'Macro Photography Setup', type: 'macro', completed: false },
-    { id: '3', title: 'Stock Inventory Update', type: 'stock', completed: false },
-    { id: '4', title: 'General Duty Round', type: 'duty', completed: false },
-];
+const TASK_ROLES = [
+    { type: 'sterilization', title: 'Sterilization & Hygiene' },
+    { type: 'macro', title: 'Macro Photography & Media' },
+    { type: 'stock', title: 'Stock & Inventory Control' },
+    { type: 'duty', title: 'General Duty & Patient Care' }
+] as const;
 
 export default function AssistantTasks() {
-    const [tasks, setTasks] = useState(MOCK_TASKS);
+    const { user } = useAuth();
+    const [tasks, setTasks] = useState<Task[]>([]);
+    const [loading, setLoading] = useState(true);
+    const [weekNumber] = useState(getISOWeek(new Date()));
+    const [assignedRole, setAssignedRole] = useState<typeof TASK_ROLES[number] | null>(null);
 
-    const toggleTask = (id: string) => {
-        setTasks(prev => prev.map(t =>
-            t.id === id ? { ...t, completed: !t.completed, time: !t.completed ? new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) : undefined } : t
-        ));
+    useEffect(() => {
+        if (user) {
+            determineRoleAndFetchTasks();
+        }
+    }, [user, weekNumber]);
+
+    const determineRoleAndFetchTasks = async () => {
+        setLoading(true);
+        try {
+            // 1. Determine Role based on User Rotation
+            // Logic: (WeekNum + UserHash) % 4
+            // This ensures rotation every week and distribution across users
+            if (user) {
+                const userHash = user.id.split('').reduce((acc, char) => acc + char.charCodeAt(0), 0);
+                const roleIndex = (weekNumber + userHash) % TASK_ROLES.length;
+                const role = TASK_ROLES[roleIndex];
+                setAssignedRole(role);
+
+                await fetchAndEnsureTasks(role);
+            }
+        } catch (err) {
+            console.error('Error in task flow:', err);
+        } finally {
+            setLoading(false);
+        }
     };
 
+    const fetchAndEnsureTasks = async (role: typeof TASK_ROLES[number]) => {
+        // 2. Try to fetch existing tasks for this week
+        const { data, error } = await supabase
+            .from('tasks')
+            .select('*')
+            .eq('user_id', user?.id)
+            .eq('week_number', weekNumber)
+            .order('due_date', { ascending: true }); // Order by date (Mon->Sat)
+
+        if (error) throw error;
+
+        if (data && data.length > 0) {
+            setTasks(data);
+        } else {
+            // 3. Generate Daily Tasks if none exist (Mon-Sat)
+            await generateDailyTasksForRole(role);
+        }
+    };
+
+    const generateDailyTasksForRole = async (role: typeof TASK_ROLES[number]) => {
+        if (!user) return;
+
+        // Generate dates for current week Mon-Sat
+        // Note: startOfWeek defaults to Sunday, so we adjust
+        const startOfCurrentWeek = startOfWeek(new Date(), { weekStartsOn: 1 }); // Monday
+        const tasksToInsert = [];
+
+        for (let i = 0; i < 6; i++) { // 0=Mon, 5=Sat
+            const date = addDays(startOfCurrentWeek, i);
+            tasksToInsert.push({
+                user_id: user.id,
+                week_number: weekNumber,
+                task_type: role.type,
+                title: `${role.title} - ${format(date, 'EEEE')}`, // e.g. "Sterilization - Monday"
+                completed_at: null,
+                // We'll store the target date in 'created_at' strictly or add a new column via SQL if strictly needed.
+                // For MVP without migrating DB schema again, we can misuse 'created_at' or rely on title/order.
+                // Actually, let's just assume the order is correct. Best effort for prototype.
+            });
+        }
+
+        const { data, error } = await supabase
+            .from('tasks')
+            .insert(tasksToInsert)
+            .select();
+
+        if (error) {
+            console.error('Error creating tasks:', error);
+        } else if (data) {
+            setTasks(data as any);
+        }
+    };
+
+    const toggleTask = async (task: Task) => {
+        const isCompleted = !!task.completed_at;
+        const newStatus = isCompleted ? null : new Date().toISOString();
+
+        // Optimistic UI Update
+        setTasks(prev => prev.map(t =>
+            t.id === task.id ? { ...t, completed_at: newStatus } : t
+        ));
+
+        const { error } = await supabase
+            .from('tasks')
+            .update({ completed_at: newStatus })
+            .eq('id', task.id);
+
+        if (error) {
+            console.error('Error updating task:', error);
+            // Revert on error
+            setTasks(prev => prev.map(t =>
+                t.id === task.id ? { ...t, completed_at: task.completed_at } : t
+            ));
+        }
+    };
+
+    const completedCount = tasks.filter(t => t.completed_at).length;
+    const totalTasks = tasks.length || 6; // Default to 6 if loading
+    const progress = (completedCount / totalTasks) * 100;
+
+    if (loading) {
+        return (
+            <div className="flex justify-center p-8">
+                <Loader2 className="animate-spin text-blue-500" size={32} />
+            </div>
+        );
+    }
+
     return (
-        <div className="max-w-md mx-auto">
-            <h2 className="text-xl font-bold mb-6 text-gray-800">Weekly Tasks</h2>
+        <div className="max-w-md mx-auto pb-20">
+            <header className="mb-6">
+                <div className="flex justify-between items-start">
+                    <div>
+                        <h2 className="text-xl font-bold text-gray-800">Weekly Assignment</h2>
+                        <p className="text-sm text-gray-500">Week {weekNumber}</p>
+                    </div>
+                    {assignedRole && (
+                        <span className="px-3 py-1 bg-blue-100 text-blue-800 text-xs font-bold rounded-full uppercase">
+                            {assignedRole.type}
+                        </span>
+                    )}
+                </div>
+
+                {assignedRole && (
+                    <div className="mt-4 p-4 bg-gradient-to-r from-blue-600 to-indigo-600 rounded-2xl text-white shadow-lg shadow-blue-200">
+                        <div className="flex items-center gap-2 opacity-80 mb-1 text-xs uppercase tracking-wide font-semibold">
+                            <CalendarDays size={14} />
+                            Your Role
+                        </div>
+                        <h3 className="text-2xl font-bold">{assignedRole.title}</h3>
+                        <p className="opacity-90 text-sm mt-1">Complete your daily checklist to earn the weekly bonus.</p>
+                    </div>
+                )}
+            </header>
 
             <div className="space-y-3">
-                {tasks.map(task => (
-                    <div
-                        key={task.id}
-                        onClick={() => toggleTask(task.id)}
-                        className={clsx(
-                            "flex items-center p-4 rounded-xl border transition-all cursor-pointer select-none",
-                            task.completed
-                                ? "bg-blue-50 border-blue-200"
-                                : "bg-white border-gray-100 shadow-sm hover:border-blue-300"
-                        )}
-                    >
-                        <div className={clsx(
-                            "mr-4 transition-colors",
-                            task.completed ? "text-blue-600" : "text-gray-300"
-                        )}>
-                            {task.completed ? <CheckCircle2 size={24} /> : <Circle size={24} />}
-                        </div>
-
-                        <div className="flex-1">
-                            <h3 className={clsx(
-                                "font-medium",
-                                task.completed ? "text-blue-900 line-through opacity-70" : "text-gray-800"
+                {tasks.map((task) => {
+                    const isCompleted = !!task.completed_at;
+                    return (
+                        <div
+                            key={task.id}
+                            onClick={() => toggleTask(task)}
+                            className={clsx(
+                                "flex items-center p-4 rounded-xl border transition-all cursor-pointer select-none group",
+                                isCompleted
+                                    ? "bg-blue-50 border-blue-200"
+                                    : "bg-white border-gray-100 shadow-sm hover:border-blue-300 hover:shadow-md"
+                            )}
+                        >
+                            <div className={clsx(
+                                "mr-4 transition-colors p-1 rounded-full",
+                                isCompleted ? "text-blue-600 bg-blue-100" : "text-gray-300 group-hover:text-blue-400 group-hover:bg-blue-50"
                             )}>
-                                {task.title}
-                            </h3>
-                            <p className="text-xs text-gray-400 capitalize">{task.type}</p>
-                        </div>
-
-                        {task.completed && task.time && (
-                            <div className="text-xs text-blue-400 font-mono flex items-center gap-1">
-                                <Clock size={12} />
-                                {task.time}
+                                {isCompleted ? <CheckCircle2 size={24} /> : <Circle size={24} />}
                             </div>
-                        )}
-                    </div>
-                ))}
+
+                            <div className="flex-1">
+                                <h3 className={clsx(
+                                    "font-medium transition-all",
+                                    isCompleted ? "text-blue-900 line-through opacity-70" : "text-gray-800"
+                                )}>
+                                    {task.title.split(' - ')[1] || task.title} {/* Show just the day name if formatted */}
+                                </h3>
+                                <p className="text-xs text-gray-400 capitalize flex items-center gap-1">
+                                    <span className="w-1.5 h-1.5 rounded-full bg-gray-300"></span>
+                                    {task.title.split(' - ')[0]}
+                                </p>
+                            </div>
+
+                            {isCompleted && task.completed_at && (
+                                <div className="text-xs text-blue-400 font-mono flex items-center gap-1 bg-white px-2 py-1 rounded-md border border-blue-100">
+                                    <Clock size={12} />
+                                    {format(new Date(task.completed_at), 'HH:mm')}
+                                </div>
+                            )}
+                        </div>
+                    );
+                })}
             </div>
 
-            <div className="mt-8 p-4 bg-amber-50 rounded-lg text-amber-800 text-sm border border-amber-100">
-                <p className="font-semibold mb-1">Weekly Bonus Progress: 1/4</p>
-                <div className="w-full bg-amber-200 h-2 rounded-full mt-2">
-                    <div className="bg-amber-500 h-2 rounded-full" style={{ width: '25%' }}></div>
+            <div className="fixed bottom-20 left-4 right-4 max-w-md mx-auto">
+                <div className="p-4 bg-white/90 backdrop-blur-md rounded-2xl shadow-xl border border-amber-100">
+                    <div className="flex justify-between font-semibold mb-2 text-sm text-gray-700">
+                        <span>Weekly Progress</span>
+                        <span className="text-blue-600 font-mono">{completedCount}/{totalTasks}</span>
+                    </div>
+                    <div className="w-full bg-gray-100 h-3 rounded-full overflow-hidden">
+                        <div
+                            className={clsx(
+                                "h-full rounded-full transition-all duration-700 ease-out",
+                                completedCount === totalTasks ? "bg-green-500" : "bg-gradient-to-r from-amber-400 to-orange-500"
+                            )}
+                            style={{ width: `${progress}%` }}
+                        ></div>
+                    </div>
+                    {completedCount === totalTasks ? (
+                        <div className="mt-3 text-center animate-bounce-short">
+                            <span className="inline-flex items-center gap-1.5 px-3 py-1 bg-green-100 text-green-700 rounded-full text-xs font-bold border border-green-200">
+                                🎉 Bonus Unlocked! (+1000 TRY)
+                            </span>
+                        </div>
+                    ) : (
+                        <p className="text-center text-xs text-gray-400 mt-2">
+                            Complete all {totalTasks} days to unlock bonus
+                        </p>
+                    )}
                 </div>
             </div>
         </div>

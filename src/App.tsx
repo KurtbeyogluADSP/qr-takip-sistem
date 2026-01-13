@@ -11,6 +11,8 @@ import AssistantTasks from './pages/AssistantTasks';
 import Login from './pages/LoginPage';
 import AdminDashboard from './pages/AdminDashboard';
 
+import AdminReEntry from './pages/AdminReEntry';
+
 function App() {
   return (
     <AuthProvider>
@@ -25,6 +27,7 @@ function App() {
           {/* Admin Routes */}
           <Route path="/admin" element={<AdminLayout />}>
             <Route index element={<AdminDashboard />} />
+            <Route path="re-entry" element={<AdminReEntry />} />
           </Route>
 
 

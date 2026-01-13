@@ -25,10 +25,10 @@ export default function AdminLayout() {
                         <LayoutDashboard size={20} />
                         <span>Dashboard</span>
                     </Link>
-                    <button className="w-full flex items-center gap-3 px-4 py-3 text-gray-700 hover:bg-blue-50 hover:text-blue-700 rounded-lg transition-colors text-left">
+                    <Link to="/admin/re-entry" className="flex items-center gap-3 px-4 py-3 text-gray-700 hover:bg-blue-50 hover:text-blue-700 rounded-lg transition-colors text-left">
                         <QrCode size={20} />
                         <span>Re-entry QR</span>
-                    </button>
+                    </Link>
                 </nav>
 
                 <div className="p-4 border-t border-gray-100">
