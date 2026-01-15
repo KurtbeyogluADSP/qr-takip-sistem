@@ -14,6 +14,7 @@ import AdminDashboard from './pages/AdminDashboard';
 
 import AdminReEntry from './pages/AdminReEntry';
 import AdminUsers from './pages/AdminUsers';
+import AdminAnalytics from './pages/AdminAnalytics';
 
 function App() {
   return (
@@ -31,7 +32,8 @@ function App() {
           <Route path="/admin" element={<AdminLayout />}>
             <Route index element={<AdminDashboard />} />
             <Route path="re-entry" element={<AdminReEntry />} />
-            <Route path="users" element={<AdminUsers />} />
+            <Route path="/admin/users" element={<AdminUsers />} />
+            <Route path="/admin/analytics" element={<AdminAnalytics />} />
           </Route>
 
 
