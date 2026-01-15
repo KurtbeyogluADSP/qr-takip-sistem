@@ -1,7 +1,7 @@
 import { useState, useEffect } from 'react';
 import { useAuth } from '../components/AuthProvider';
 import { useNavigate } from 'react-router-dom';
-import { LogIn, QrCode, ArrowLeft } from 'lucide-react';
+import { QrCode, ArrowLeft } from 'lucide-react';
 import { supabase } from '../lib/supabase';
 import { Html5QrcodeScanner } from 'html5-qrcode';
 
@@ -118,30 +118,37 @@ export default function LoginPage() {
     };
 
     return (
-        <div className="min-h-screen flex items-center justify-center bg-gray-50 px-4">
-            <div className="max-w-md w-full space-y-8 bg-white p-8 rounded-xl shadow-lg border border-gray-100">
-                <div className="text-center">
-                    <div className="mx-auto h-12 w-12 bg-blue-100 rounded-full flex items-center justify-center">
-                        <LogIn className="h-6 w-6 text-blue-600" />
-                    </div>
-                    <h2 className="mt-6 text-3xl font-extrabold text-gray-900">
-                        clinic Assistant Login
+        <div className="min-h-screen flex items-center justify-center bg-gray-50 px-4 relative overflow-hidden">
+            {/* Background Decoration */}
+            <div className="absolute top-[-10%] left-[-10%] w-[500px] h-[500px] rounded-full bg-teal-600/10 blur-3xl pointer-events-none" />
+            <div className="absolute bottom-[-10%] right-[-10%] w-[400px] h-[400px] rounded-full bg-gold-500/10 blur-3xl pointer-events-none" />
+
+            <div className="max-w-md w-full space-y-8 bg-white p-10 rounded-3xl shadow-2xl border border-gray-100 relative z-10 backdrop-blur-sm bg-white/90">
+                <div className="text-center flex flex-col items-center">
+                    <img src="/logo.jpg" alt="Kurtbeyoğlu Logo" className="w-32 h-32 object-contain mb-6 drop-shadow-md" />
+
+                    <h2 className="text-2xl font-bold text-gray-900 tracking-tight">
+                        Kurtbeyoğlu ADSP
                     </h2>
-                    <p className="mt-2 text-sm text-gray-600">
-                        {mode === 'form' ? 'Enter credentials or scan admin QR' : 'Scan the QR code provided by Admin'}
+                    <p className="text-gray-500 text-sm font-medium uppercase tracking-widest mt-1 mb-8">
+                        Personel QR Takip Sistemi
+                    </p>
+
+                    <p className="text-sm text-gray-600">
+                        {mode === 'form' ? 'Giriş bilgilerinizi giriniz veya QR okutunuz' : 'Yönetici QR Kodunu Okutunuz'}
                     </p>
                 </div>
 
                 {mode === 'form' ? (
                     <>
-                        <form className="mt-8 space-y-6" onSubmit={handleSubmit}>
-                            <div className="rounded-md shadow-sm -space-y-px">
+                        <form className="mt-6 space-y-5" onSubmit={handleSubmit}>
+                            <div className="space-y-4">
                                 <div>
                                     <input
                                         type="email"
                                         required
-                                        className="appearance-none rounded-none relative block w-full px-3 py-2 border border-gray-300 placeholder-gray-500 text-gray-900 rounded-t-lg focus:outline-none focus:ring-blue-500 focus:border-blue-500 focus:z-10 sm:text-sm"
-                                        placeholder="Email address"
+                                        className="appearance-none block w-full px-4 py-3 border border-gray-200 rounded-xl text-gray-900 placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-teal-500 focus:border-transparent transition-all bg-gray-50 focus:bg-white"
+                                        placeholder="E-posta Adresi"
                                         value={email}
                                         onChange={(e) => setEmail(e.target.value)}
                                     />
@@ -150,8 +157,8 @@ export default function LoginPage() {
                                     <input
                                         type="password"
                                         required
-                                        className="appearance-none rounded-none relative block w-full px-3 py-2 border border-gray-300 placeholder-gray-500 text-gray-900 rounded-b-lg focus:outline-none focus:ring-blue-500 focus:border-blue-500 focus:z-10 sm:text-sm"
-                                        placeholder="Password"
+                                        className="appearance-none block w-full px-4 py-3 border border-gray-200 rounded-xl text-gray-900 placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-teal-500 focus:border-transparent transition-all bg-gray-50 focus:bg-white"
+                                        placeholder="Şifre"
                                         value={password}
                                         onChange={(e) => setPassword(e.target.value)}
                                     />
@@ -159,38 +166,47 @@ export default function LoginPage() {
                             </div>
 
                             {error && (
-                                <div className="text-red-500 text-sm text-center bg-red-50 p-2 rounded">{error}</div>
+                                <div className="text-red-600 text-sm text-center bg-red-50 p-3 rounded-lg border border-red-100 font-medium animate-pulse">{error}</div>
                             )}
 
                             <div>
                                 <button
                                     type="submit"
                                     disabled={isLoading}
-                                    className="w-full flex justify-center py-2 px-4 border border-transparent text-sm font-medium rounded-md text-white bg-blue-600 hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500"
+                                    className="w-full flex justify-center py-3.5 px-4 border border-transparent text-sm font-bold rounded-xl text-white bg-gradient-to-r from-teal-600 to-teal-500 hover:from-teal-700 hover:to-teal-600 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-teal-500 shadow-lg shadow-teal-500/30 transition-all active:scale-[0.98]"
                                 >
-                                    {isLoading ? 'Processing...' : 'Sign In'}
+                                    {isLoading ? 'İşleniyor...' : 'Giriş Yap'}
                                 </button>
                             </div>
                         </form>
 
+                        <div className="mt-8 relative">
+                            <div className="absolute inset-0 flex items-center">
+                                <div className="w-full border-t border-gray-200"></div>
+                            </div>
+                            <div className="relative flex justify-center text-sm">
+                                <span className="px-2 bg-white text-gray-400">veya</span>
+                            </div>
+                        </div>
+
                         <div className="mt-6 text-center">
                             <button
                                 onClick={() => setMode('scan')}
-                                className="flex items-center justify-center gap-2 w-full py-2 border-2 border-dashed border-gray-300 rounded-lg text-gray-600 hover:bg-gray-50 hover:border-blue-400 hover:text-blue-600 transition-all font-medium"
+                                className="flex items-center justify-center gap-3 w-full py-3.5 border-2 border-dashed border-gray-300 rounded-xl text-gray-600 hover:bg-gray-50 hover:border-teal-400 hover:text-teal-700 transition-all font-semibold group"
                             >
-                                <QrCode size={20} />
-                                Scan Admin QR to Login
+                                <QrCode size={20} className="group-hover:scale-110 transition-transform" />
+                                Admin QR ile Giriş Yap
                             </button>
                         </div>
                     </>
                 ) : (
-                    <div className="mt-8">
+                    <div className="mt-6">
                         {error && (
-                            <div className="mb-4 text-red-500 text-sm text-center bg-red-50 p-2 rounded">{error}</div>
+                            <div className="mb-4 text-red-600 text-sm text-center bg-red-50 p-3 rounded-lg border border-red-100 font-medium">{error}</div>
                         )}
-                        <div className="bg-gray-100 rounded-lg overflow-hidden relative">
-                            <div id="login-reader" className="w-full"></div>
-                            {scanResult && <div className="absolute inset-0 bg-white/80 flex items-center justify-center text-blue-600 font-bold">Processing...</div>}
+                        <div className="bg-gray-900 rounded-2xl overflow-hidden relative shadow-inner border border-gray-800">
+                            <div id="login-reader" className="w-full h-[300px] bg-black"></div>
+                            {scanResult && <div className="absolute inset-0 bg-white/90 flex items-center justify-center text-teal-600 font-bold text-lg animate-pulse">İşleniyor...</div>}
                         </div>
                         <button
                             onClick={() => {
@@ -198,13 +214,17 @@ export default function LoginPage() {
                                 setScanResult(null);
                                 setError(null);
                             }}
-                            className="mt-6 flex items-center justify-center gap-2 w-full py-2 text-gray-500 hover:text-gray-800 transition-colors"
+                            className="mt-6 flex items-center justify-center gap-2 w-full py-3 text-gray-500 hover:text-gray-800 transition-colors font-medium"
                         >
-                            <ArrowLeft size={20} />
-                            Back to Password Login
+                            <ArrowLeft size={18} />
+                            Şifre ile Giriş'e Dön
                         </button>
                     </div>
                 )}
+            </div>
+
+            <div className="absolute bottom-6 text-center text-gray-400 text-xs">
+                &copy; 2024 Kurtbeyoğlu ADSP. Tüm hakları saklıdır.
             </div>
         </div>
     );

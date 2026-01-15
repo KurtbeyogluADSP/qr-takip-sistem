@@ -34,16 +34,18 @@ export default function AdminDashboard() {
             <h1 className="text-2xl font-bold text-slate-800 mb-8">Admin Dashboard</h1>
 
             {/* Close Day Section */}
-            <div className="bg-gradient-to-br from-slate-800 to-slate-900 rounded-2xl p-8 text-white shadow-xl mb-10 overflow-hidden relative">
-                <div className="absolute top-0 right-0 p-8 opacity-10">
-                    <Moon size={120} />
+            <div className="bg-gradient-to-br from-slate-900 to-slate-800 rounded-3xl p-8 text-white shadow-2xl mb-10 overflow-hidden relative border border-slate-700/50">
+                <div className="absolute top-0 right-0 p-8 opacity-5">
+                    <img src="/logo.jpg" className="w-64 h-64 object-contain grayscale invert opacity-20 transform rotate-12" />
                 </div>
 
-                <h2 className="text-xl font-bold mb-2 flex items-center gap-2">
-                    <Moon className="text-blue-400" />
+                <h2 className="text-xl font-bold mb-2 flex items-center gap-3">
+                    <div className="p-2 bg-slate-800 rounded-lg border border-slate-700">
+                        <Moon className="text-teal-400" />
+                    </div>
                     End of Day Protocol
                 </h2>
-                <p className="text-slate-400 mb-6 max-w-xl">
+                <p className="text-slate-400 mb-8 max-w-xl leading-relaxed">
                     Clicking this will explicitly close the clinic day. All assistants who forgot to check out will be automatically checked out by the system.
                 </p>
 
