@@ -4,6 +4,7 @@ import { AuthProvider } from './components/AuthProvider';
 import AdminLayout from './layouts/AdminLayout';
 import AssistantLayout from './layouts/AssistantLayout';
 import KioskPage from './pages/KioskPage';
+import LockedPage from './pages/LockedPage';
 import AssistantScan from './pages/AssistantScan';
 
 import AssistantTasks from './pages/AssistantTasks';
@@ -12,6 +13,7 @@ import Login from './pages/LoginPage';
 import AdminDashboard from './pages/AdminDashboard';
 
 import AdminReEntry from './pages/AdminReEntry';
+import AdminUsers from './pages/AdminUsers';
 
 function App() {
   return (
@@ -23,11 +25,13 @@ function App() {
 
           {/* Kiosk Mode - Dedicated Layout/Page */}
           <Route path="/kiosk" element={<KioskPage />} />
+          <Route path="/locked" element={<LockedPage />} />
 
           {/* Admin Routes */}
           <Route path="/admin" element={<AdminLayout />}>
             <Route index element={<AdminDashboard />} />
             <Route path="re-entry" element={<AdminReEntry />} />
+            <Route path="users" element={<AdminUsers />} />
           </Route>
 
 

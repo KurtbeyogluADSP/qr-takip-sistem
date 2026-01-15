@@ -38,44 +38,27 @@ export default function AdminReEntry() {
         setLoading(true);
 
         try {
-            // 1. Generate a random temporary password
-            const tempPassword = Math.random().toString(36).slice(-8) + Math.random().toString(36).slice(-8);
+            // STRICT RE-ENTRY: Generate a token, do NOT reset password.
+            // Token is a simple UUID or unique string.
+            const token = `re-entry-${Math.random().toString(36).substring(2)}-${Date.now()}`;
 
-            // 2. Call RPC to update user's password
-            const { error: rpcError } = await supabase.rpc('admin_generate_reentry_credentials', {
-                target_user_id: selectedUser,
-                new_password: tempPassword
-            });
-
-            if (rpcError) throw rpcError;
-
-            // 3. Find user email
-            const user = assistants.find(a => a.id === selectedUser);
-            if (!user) throw new Error("User not found");
-
-            // 4. Generate QR payload: JSON string for LoginPage to parse
-            // Payload: re_entry_v1|email|password
-            const payload = JSON.stringify({
-                type: 're_entry_auth',
-                email: user.email,
-                password: tempPassword,
-                timestamp: Date.now()
-            });
-
-            setQrValue(payload);
-            setTimeLeft(300); // 5 minutes validity logic (mostly for UI, password is set until changed)
-
-            // Optional: Log token generation to qr_tokens for record keeping (even if we don't strictly use it for auth now)
-            await supabase.from('qr_tokens').insert({
-                token: 'RE_ENTRY_GENERATED',
-                type: 'admin_reentry',
+            // Insert into qr_tokens
+            const { error: insertError } = await supabase.from('qr_tokens').insert({
+                token: token,
+                type: 're_entry_token', // New strict type
                 assigned_user_id: selectedUser,
-                expires_at: new Date(Date.now() + 5 * 60 * 1000).toISOString()
+                expires_at: new Date(Date.now() + 5 * 60 * 1000).toISOString() // 5 mins
             });
+
+            if (insertError) throw insertError;
+
+            // QR Value is just the token string now
+            setQrValue(token);
+            setTimeLeft(300);
 
         } catch (err: any) {
             console.error(err);
-            setError(err.message || 'Failed to generate re-entry credentials');
+            setError(err.message || 'Failed to generate re-entry token');
         } finally {
             setLoading(false);
         }

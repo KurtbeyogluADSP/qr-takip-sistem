@@ -1,7 +1,7 @@
 
 import { Outlet, Link, useNavigate } from 'react-router-dom';
 import { useAuth } from '../components/AuthProvider';
-import { LogOut, LayoutDashboard, QrCode } from 'lucide-react';
+import { LogOut, LayoutDashboard, QrCode, UserPlus } from 'lucide-react';
 
 export default function AdminLayout() {
     const { signOut } = useAuth();
@@ -28,6 +28,10 @@ export default function AdminLayout() {
                     <Link to="/admin/re-entry" className="flex items-center gap-3 px-4 py-3 text-gray-700 hover:bg-blue-50 hover:text-blue-700 rounded-lg transition-colors text-left">
                         <QrCode size={20} />
                         <span>Re-entry QR</span>
+                    </Link>
+                    <Link to="/admin/users" className="flex items-center gap-3 px-4 py-3 text-gray-700 hover:bg-blue-50 hover:text-blue-700 rounded-lg transition-colors text-left">
+                        <UserPlus size={20} />
+                        <span>Manage Users</span>
                     </Link>
                 </nav>
 

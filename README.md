@@ -1,73 +1,32 @@
-# React + TypeScript + Vite
+# Kurtbeyoğlu ADSP - QR Takip Sistemi
 
-This template provides a minimal setup to get React working in Vite with HMR and some ESLint rules.
+Personel giriş-çıkış takibi ve Kiosk yönetimi için geliştirilmiş modern web uygulaması.
 
-Currently, two official plugins are available:
+## Özellikler
 
-- [@vitejs/plugin-react](https://github.com/vitejs/vite-plugin-react/blob/main/packages/plugin-react) uses [Babel](https://babeljs.io/) (or [oxc](https://oxc.rs) when used in [rolldown-vite](https://vite.dev/guide/rolldown)) for Fast Refresh
-- [@vitejs/plugin-react-swc](https://github.com/vitejs/vite-plugin-react/blob/main/packages/plugin-react-swc) uses [SWC](https://swc.rs/) for Fast Refresh
+- **QR ile Temassız Giriş/Çıkış:** Personel kişisel QR kodunu okutarak işlem yapar.
+- **Kiosk Modu:** Tablet veya PC'de sürekli açık duran QR okuma ekranı.
+- **Admin Paneli:** Kullanıcı yönetimi, geçmiş takibi ve "Günü Kapatma" özelliği.
+- **Güvenlik (Strict Re-entry):** Uygulamadan çıkış yapan personel kilitlenir, sadece Admin açabilir.
+- **Puan Sistemi:** (Opsiyonel/Gizli) Görev puanlama altyapısı mevcuttur.
 
-## React Compiler
+## Hızlı Başlangıç
 
-The React Compiler is not enabled on this template because of its impact on dev & build performances. To add it, see [this documentation](https://react.dev/learn/react-compiler/installation).
+### Kiosk Ekranını Açma (Banko/Giriş)
+1. Tarayıcıda `https://[uygulama-adresi]/kiosk` adresine gidin.
+2. Sayfa açılınca tam ekran yapın (F11).
+3. Günlük QR otomatik olarak ekranda belirecektir.
 
-## Expanding the ESLint configuration
+### Admin Girişi
+- `/login` adresinden yönetici hesabı ile giriş yapın.
 
-If you are developing a production application, we recommend updating the configuration to enable type-aware lint rules:
+## Teknik Bilgiler
+- **Framework:** React + Vite
+- **Veritabanı:** Supabase
+- **Styling:** TailwindCSS
 
-```js
-export default defineConfig([
-  globalIgnores(['dist']),
-  {
-    files: ['**/*.{ts,tsx}'],
-    extends: [
-      // Other configs...
-
-      // Remove tseslint.configs.recommended and replace with this
-      tseslint.configs.recommendedTypeChecked,
-      // Alternatively, use this for stricter rules
-      tseslint.configs.strictTypeChecked,
-      // Optionally, add this for stylistic rules
-      tseslint.configs.stylisticTypeChecked,
-
-      // Other configs...
-    ],
-    languageOptions: {
-      parserOptions: {
-        project: ['./tsconfig.node.json', './tsconfig.app.json'],
-        tsconfigRootDir: import.meta.dirname,
-      },
-      // other options...
-    },
-  },
-])
-```
-
-You can also install [eslint-plugin-react-x](https://github.com/Rel1cx/eslint-react/tree/main/packages/plugins/eslint-plugin-react-x) and [eslint-plugin-react-dom](https://github.com/Rel1cx/eslint-react/tree/main/packages/plugins/eslint-plugin-react-dom) for React-specific lint rules:
-
-```js
-// eslint.config.js
-import reactX from 'eslint-plugin-react-x'
-import reactDom from 'eslint-plugin-react-dom'
-
-export default defineConfig([
-  globalIgnores(['dist']),
-  {
-    files: ['**/*.{ts,tsx}'],
-    extends: [
-      // Other configs...
-      // Enable lint rules for React
-      reactX.configs['recommended-typescript'],
-      // Enable lint rules for React DOM
-      reactDom.configs.recommended,
-    ],
-    languageOptions: {
-      parserOptions: {
-        project: ['./tsconfig.node.json', './tsconfig.app.json'],
-        tsconfigRootDir: import.meta.dirname,
-      },
-      // other options...
-    },
-  },
-])
+## Kurulum (Geliştirici)
+```bash
+npm install
+npm run dev
 ```

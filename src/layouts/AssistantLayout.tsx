@@ -1,13 +1,21 @@
 
-import { Outlet, Link, useLocation, useNavigate } from 'react-router-dom';
+import { Outlet, Link, useLocation, useNavigate, Navigate } from 'react-router-dom';
 import { QrCode, ClipboardList, LogOut } from 'lucide-react';
 import { useAuth } from '../components/AuthProvider';
 import clsx from 'clsx';
 
 export default function AssistantLayout() {
     const { pathname } = useLocation();
-    const { signOut } = useAuth();
+    const { signOut, profile, isLoading } = useAuth();
     const navigate = useNavigate();
+
+    // STRICT LOCK ENFORCEMENT
+    // If user is designated as 'locked out', force them to the Locked Page
+    if (!isLoading && profile?.is_locked_out && !pathname.includes('locked')) {
+        // Using window.location to ensure a hard redirect/refresh if needed, or just Navigate
+        // But Navigate component is better for UX.
+        return <Navigate to="/locked" replace />;
+    }
 
     const handleSignOut = async () => {
         await signOut();
@@ -39,8 +47,11 @@ export default function AssistantLayout() {
                     )}
                 >
                     <QrCode size={24} />
-                    <span>Scan</span>
+                    <span>Attendance</span>
                 </Link>
+                {/* 
+                // TASK FEATURE HIDDEN PER USER REQUEST (Simplification)
+                // Uncomment to re-enable
                 <Link
                     to="/assistant/tasks"
                     className={clsx(
@@ -50,7 +61,8 @@ export default function AssistantLayout() {
                 >
                     <ClipboardList size={24} />
                     <span>Tasks</span>
-                </Link>
+                </Link> 
+                */}
             </nav>
         </div>
     );

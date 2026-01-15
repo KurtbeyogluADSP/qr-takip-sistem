@@ -2,7 +2,7 @@ import { useState, useEffect } from 'react';
 import QRCode from 'react-qr-code';
 import { format } from 'date-fns';
 import { supabase } from '../lib/supabase';
-import { RefreshCw, AlertTriangle } from 'lucide-react';
+import { RefreshCw, AlertTriangle, Moon } from 'lucide-react';
 
 export default function KioskPage() {
     const [currentTime, setCurrentTime] = useState(new Date());
@@ -10,9 +10,39 @@ export default function KioskPage() {
     const [message, setMessage] = useState<string>('');
     const [isActiveWindow, setIsActiveWindow] = useState(false);
     const [refreshKey, setRefreshKey] = useState(0);
+    const [isDayClosed, setIsDayClosed] = useState(false);
+    const [closedBy, setClosedBy] = useState<string | null>(null);
+
+    // Initial Day Status Check & Polling
+    const checkDayStatus = async () => {
+        const today = new Date().toISOString().split('T')[0];
+        const { data, error } = await supabase
+            .from('daily_status')
+            .select('*')
+            .eq('date', today)
+            .single();
+
+        if (data && data.is_closed) {
+            setIsDayClosed(true);
+            setClosedBy(data.closed_by);
+        } else {
+            setIsDayClosed(false); // Can re-open if record deleted/changed (unlikely but good for state sync)
+        }
+    };
+
+    useEffect(() => {
+        checkDayStatus();
+        const statusInterval = setInterval(checkDayStatus, 30000); // Check every 30s
+        return () => clearInterval(statusInterval);
+    }, []);
 
     // Time Window Logic
     const checkTimeWindow = (date: Date) => {
+        if (isDayClosed) {
+            setMessage("Clinic Closed");
+            return false;
+        }
+
         const hours = date.getHours();
 
         // Check-in: 08:00 - 10:00
@@ -40,18 +70,25 @@ export default function KioskPage() {
         const timer = setInterval(() => {
             const now = new Date();
             setCurrentTime(now);
-            setIsActiveWindow(checkTimeWindow(now));
+            // Only update active window if day is not closed
+            if (!isDayClosed) {
+                setIsActiveWindow(checkTimeWindow(now));
+            } else {
+                setIsActiveWindow(false);
+            }
         }, 1000);
 
         // Initial check
-        setIsActiveWindow(checkTimeWindow(new Date()));
+        if (!isDayClosed) {
+            setIsActiveWindow(checkTimeWindow(new Date()));
+        }
 
         return () => clearInterval(timer);
-    }, []);
+    }, [isDayClosed]); // Re-run if closed status changes
 
     // QR Generation Logic (Polls every 45s)
     useEffect(() => {
-        if (!isActiveWindow) {
+        if (!isActiveWindow || isDayClosed) {
             setQrToken('');
             return;
         }
@@ -85,7 +122,7 @@ export default function KioskPage() {
         const qrInterval = setInterval(generateToken, 45000); // 45s refresh
 
         return () => clearInterval(qrInterval);
-    }, [isActiveWindow]); // Re-run if window active changes
+    }, [isActiveWindow, isDayClosed]);
 
     return (
         <div className="min-h-screen bg-slate-900 flex flex-col items-center justify-center p-8 text-white relative overflow-hidden">
@@ -113,42 +150,61 @@ export default function KioskPage() {
                 </div>
             </header>
 
-            {/* QR Content */}
-            <div className="z-10 flex flex-col items-center animate-fade-in-up">
-                <div className={`bg-white p-8 rounded-3xl shadow-2xl transition-all duration-500 ${isActiveWindow ? 'shadow-blue-500/50' : 'shadow-red-500/20 grayscale'}`}>
-                    {isActiveWindow && qrToken ? (
-                        <div className="relative group">
-                            <QRCode
-                                key={refreshKey}
-                                value={qrToken}
-                                size={300}
-                                level="H"
-                            />
-                            <div className="absolute -bottom-6 left-0 right-0 text-center">
-                                <div className="h-1 bg-slate-200 rounded-full overflow-hidden mt-6 w-full">
-                                    <div className="h-full bg-blue-500 animate-shrink-width" style={{ animationDuration: '45s' }} />
+            {/* Content Switcher */}
+            {isDayClosed ? (
+                // CLOSED STATE UI
+                <div className="z-10 flex flex-col items-center animate-fade-in-up">
+                    <div className="bg-slate-800/80 backdrop-blur-md p-12 rounded-3xl shadow-2xl border border-slate-700 text-center max-w-2xl">
+                        <div className="bg-slate-900/50 p-6 rounded-full inline-block mb-6">
+                            <Moon size={64} className="text-blue-400" />
+                        </div>
+                        <h2 className="text-4xl font-bold text-white mb-4">Clinic Closed</h2>
+                        <p className="text-xl text-slate-300 mb-8">
+                            The day has been officially closed by <span className="text-blue-400 font-semibold">{closedBy || 'Admin'}</span>.
+                        </p>
+                        <div className="bg-blue-500/10 border border-blue-500/20 rounded-xl p-4 text-sm text-blue-200">
+                            System shut down at {format(currentTime, 'HH:mm')} • Please scan Re-entry QR if access is needed.
+                        </div>
+                    </div>
+                </div>
+            ) : (
+                // ACTIVE QR STATE
+                <div className="z-10 flex flex-col items-center animate-fade-in-up">
+                    <div className={`bg-white p-8 rounded-3xl shadow-2xl transition-all duration-500 ${isActiveWindow ? 'shadow-blue-500/50' : 'shadow-red-500/20 grayscale'}`}>
+                        {isActiveWindow && qrToken ? (
+                            <div className="relative group">
+                                <QRCode
+                                    key={refreshKey}
+                                    value={qrToken}
+                                    size={300}
+                                    level="H"
+                                />
+                                <div className="absolute -bottom-6 left-0 right-0 text-center">
+                                    <div className="h-1 bg-slate-200 rounded-full overflow-hidden mt-6 w-full">
+                                        <div className="h-full bg-blue-500 animate-shrink-width" style={{ animationDuration: '45s' }} />
+                                    </div>
                                 </div>
                             </div>
-                        </div>
-                    ) : (
-                        <div className="w-[300px] h-[300px] flex flex-col items-center justify-center text-slate-800 border-2 border-dashed border-slate-300 rounded-xl">
-                            <AlertTriangle size={48} className="text-amber-500 mb-4" />
-                            <p className="font-semibold text-lg">{message}</p>
-                            <p className="text-sm text-slate-500 mt-2 px-6 text-center">QR code is only available during active check-in/out windows.</p>
-                        </div>
-                    )}
-                </div>
+                        ) : (
+                            <div className="w-[300px] h-[300px] flex flex-col items-center justify-center text-slate-800 border-2 border-dashed border-slate-300 rounded-xl">
+                                <AlertTriangle size={48} className="text-amber-500 mb-4" />
+                                <p className="font-semibold text-lg">{message}</p>
+                                <p className="text-sm text-slate-500 mt-2 px-6 text-center">QR code is only available during active check-in/out windows.</p>
+                            </div>
+                        )}
+                    </div>
 
-                <div className="text-center max-w-lg mt-8">
-                    <p className="text-2xl font-medium mb-2 text-blue-100">{message}</p>
-                    {isActiveWindow && (
-                        <div className="flex items-center justify-center gap-2 text-slate-400">
-                            <RefreshCw size={14} className="animate-spin" />
-                            <span>Refreshes automatically every 45s</span>
-                        </div>
-                    )}
+                    <div className="text-center max-w-lg mt-8">
+                        <p className="text-2xl font-medium mb-2 text-blue-100">{message}</p>
+                        {isActiveWindow && (
+                            <div className="flex items-center justify-center gap-2 text-slate-400">
+                                <RefreshCw size={14} className="animate-spin" />
+                                <span>Refreshes automatically every 45s</span>
+                            </div>
+                        )}
+                    </div>
                 </div>
-            </div>
+            )}
 
             {/* Footer Info */}
             <div className="absolute bottom-8 text-center text-slate-500 z-10 text-sm">
