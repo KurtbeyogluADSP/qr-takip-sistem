@@ -16,7 +16,7 @@ export default function KioskPage() {
     // Initial Day Status Check & Polling
     const checkDayStatus = async () => {
         const today = new Date().toISOString().split('T')[0];
-        const { data, error } = await supabase
+        const { data, error: _error } = await supabase
             .from('daily_status')
             .select('*')
             .eq('date', today)

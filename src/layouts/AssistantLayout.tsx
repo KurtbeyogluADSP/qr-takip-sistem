@@ -1,6 +1,6 @@
 
 import { Outlet, Link, useLocation, useNavigate, Navigate } from 'react-router-dom';
-import { QrCode, ClipboardList, LogOut } from 'lucide-react';
+import { QrCode, LogOut } from 'lucide-react';
 import { useAuth } from '../components/AuthProvider';
 import clsx from 'clsx';
 

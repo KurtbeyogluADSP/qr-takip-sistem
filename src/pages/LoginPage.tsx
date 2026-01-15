@@ -52,7 +52,7 @@ export default function LoginPage() {
         }
     };
 
-    const onScanFailure = (error: any) => {
+    const onScanFailure = (_error: any) => {
         // console.warn(error);
     };
 

@@ -28,7 +28,7 @@ export default function LockedPage() {
         setError(null);
 
         try {
-            const { data, error } = await supabase.rpc('process_reentry_token', {
+            const { data: _data, error: _error } = await supabase.rpc('process_reentry_token', {
                 token_text: token
             });
 
@@ -77,8 +77,8 @@ export default function LockedPage() {
                     {isScanning ? (
                         <Scanner
                             onScan={handleScan}
-                            components={{ audio: false }}
-                            styles={{ container: { width: '100%', height: '100%' } }}
+                            onError={(error) => console.log(error)}
+                            styles={{ container: { width: '100%' } }}
                         />
                     ) : (
                         <div className="flex flex-col items-center justify-center h-full text-white">

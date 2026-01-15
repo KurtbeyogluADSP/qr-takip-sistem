@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react';
 import { supabase } from '../lib/supabase';
-import { UserPlus, Trash2, Shield, User } from 'lucide-react';
+import { UserPlus, Shield, User } from 'lucide-react';
 
 export default function AdminUsers() {
     const [users, setUsers] = useState<any[]>([]);
