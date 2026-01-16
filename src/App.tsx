@@ -3,7 +3,7 @@ import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom';
 import { AuthProvider } from './components/AuthProvider';
 import AdminLayout from './layouts/AdminLayout';
 import AssistantLayout from './layouts/AssistantLayout';
-import KioskPage from './pages/KioskPage';
+
 import LockedPage from './pages/LockedPage';
 import AssistantScan from './pages/AssistantScan';
 import Login from './pages/LoginPage';
@@ -20,8 +20,7 @@ function App() {
           {/* Giriş */}
           <Route path="/login" element={<Login />} />
 
-          {/* Resepsiyon Kiosk - Sürekli değişen QR */}
-          <Route path="/kiosk" element={<KioskPage />} />
+
 
           {/* Kilitli hesap sayfası */}
           <Route path="/locked" element={<LockedPage />} />
