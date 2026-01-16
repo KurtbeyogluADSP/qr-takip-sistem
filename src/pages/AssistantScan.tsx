@@ -87,7 +87,21 @@ export default function AssistantScan() {
             const result = await fp.get();
             const deviceId = result.visitorId;
 
-            // 2. Submit to Supabase
+            // 2. Strict Device Lock Check (Anti-Buddy Punching)
+            // Call the RPC to see if this device was used by anyone else today
+            const { data: isDeviceSafe, error: rpcError } = await supabase
+                .rpc('check_device_usage', {
+                    p_device_id: deviceId,
+                    p_user_id: selectedUserId
+                });
+
+            if (rpcError) throw rpcError;
+
+            if (!isDeviceSafe) {
+                throw new Error("GÜVENLİK UYARISI: Bu cihaz bugün başka bir personel tarafından kullanıldı. Lütfen kendi telefonunuzu kullanın.");
+            }
+
+            // 3. Submit to Supabase
             // Note: RLS should allow this if user_id matches
             const { error } = await supabase
                 .from('attendance')
