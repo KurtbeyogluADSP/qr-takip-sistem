@@ -1,122 +1,143 @@
--- =================================================================
--- QR TAKIP SISTEM - GÜNCELLEME SQL SCRIPT
--- Tarih: 13.01.2026
--- =================================================================
+-- FINAL_MIGRATION.sql
+-- Kurtbeyoğlu ADSP - QR Takip Sistemi
+-- SON DURUM - 16 Ocak 2026
 
--- 1. QR TOKENLARINA 'ASSIGNED USER' (ATANMIŞ KULLANICI) EKLEME
-ALTER TABLE qr_tokens 
-ADD COLUMN IF NOT EXISTS assigned_user_id UUID REFERENCES auth.users(id),
-ADD COLUMN IF NOT EXISTS used_at TIMESTAMP WITH TIME ZONE;
-
--- 2. KULLANICI TABLOSUNU OLUŞTURMA/GÜNCELLEME
-CREATE TABLE IF NOT EXISTS public.users (
-  id UUID REFERENCES auth.users(id) NOT NULL PRIMARY KEY,
-  email TEXT,
-  name TEXT,
-  role TEXT CHECK (role IN ('admin', 'assistant', 'physician', 'staff')),
-  is_locked_out BOOLEAN DEFAULT false,
-  created_at TIMESTAMP WITH TIME ZONE DEFAULT timezone('utc', now())
+-- =====================================================
+-- 1. USERS TABLOSU (auth.users FK YOK - basit sistem)
+-- =====================================================
+CREATE TABLE IF NOT EXISTS users (
+    id UUID DEFAULT gen_random_uuid() PRIMARY KEY,
+    name TEXT NOT NULL,
+    role TEXT NOT NULL CHECK (role IN ('admin', 'assistant', 'physician', 'staff')),
+    is_locked_out BOOLEAN DEFAULT false,
+    created_at TIMESTAMPTZ DEFAULT now()
 );
 
--- RLS (Row Level Security) Etkinleştirme
+-- RLS (basit, public erişim - klinik içi kullanım)
+ALTER TABLE users ENABLE ROW LEVEL SECURITY;
+DROP POLICY IF EXISTS "public_users_access" ON users;
+CREATE POLICY "public_users_access" ON users FOR ALL USING (true) WITH CHECK (true);
+
+-- =====================================================
+-- 2. ATTENDANCE (giriş/çıkış kayıtları)
+-- =====================================================
+CREATE TABLE IF NOT EXISTS attendance (
+    id UUID DEFAULT gen_random_uuid() PRIMARY KEY,
+    user_id UUID REFERENCES users(id) ON DELETE CASCADE,
+    type TEXT NOT NULL CHECK (type IN ('check_in', 'check_out')),
+    timestamp TIMESTAMPTZ DEFAULT now(),
+    device_id TEXT,
+    qr_token TEXT,
+    status TEXT DEFAULT 'pending',
+    created_at TIMESTAMPTZ DEFAULT now()
+);
+
+ALTER TABLE attendance ENABLE ROW LEVEL SECURITY;
+DROP POLICY IF EXISTS "public_attendance_access" ON attendance;
+CREATE POLICY "public_attendance_access" ON attendance FOR ALL USING (true) WITH CHECK (true);
+
+-- Index for analytics
+CREATE INDEX IF NOT EXISTS idx_attendance_user_timestamp ON attendance(user_id, timestamp);
+CREATE INDEX IF NOT EXISTS idx_attendance_device ON attendance(device_id);
+
+-- =====================================================
+-- 3. QR_TOKENS (giriş QR, kiosk QR)
+-- =====================================================
+CREATE TABLE IF NOT EXISTS qr_tokens (
+    id UUID DEFAULT gen_random_uuid() PRIMARY KEY,
+    token TEXT NOT NULL UNIQUE,
+    type TEXT NOT NULL,
+    assigned_user_id UUID REFERENCES users(id) ON DELETE CASCADE,
+    expires_at TIMESTAMPTZ NOT NULL,
+    used_at TIMESTAMPTZ,
+    created_at TIMESTAMPTZ DEFAULT now()
+);
+
 ALTER TABLE qr_tokens ENABLE ROW LEVEL SECURITY;
-ALTER TABLE public.users ENABLE ROW LEVEL SECURITY;
+DROP POLICY IF EXISTS "public_qr_tokens_access" ON qr_tokens;
+CREATE POLICY "public_qr_tokens_access" ON qr_tokens FOR ALL USING (true) WITH CHECK (true);
 
--- 3. GÜVENLİK POLİTİKALARI (POLICIES)
-
--- Temizlik (Eski/Güvensiz Politikaları Kaldır)
-DROP POLICY IF EXISTS "Enable insert for everyone (Kiosk)" ON qr_tokens;
-DROP POLICY IF EXISTS "Enable read for admins only" ON qr_tokens;
-DROP POLICY IF EXISTS "Enable read for all" ON qr_tokens;
-DROP POLICY IF EXISTS "Enable insert for authenticated tokens" ON qr_tokens;
-DROP POLICY IF EXISTS "Enable read access for all users" ON qr_tokens;
-DROP POLICY IF EXISTS "Enable insert for authenticated users only" ON qr_tokens;
-
-DROP POLICY IF EXISTS "Public users are viewable by everyone" ON public.users;
-CREATE POLICY "Public users are viewable by everyone" ON public.users FOR SELECT USING (true);
-
-DROP POLICY IF EXISTS "Users can update their own status" ON public.users;
-CREATE POLICY "Users can update their own status" ON public.users FOR UPDATE USING (auth.uid() = id);
-
-DROP POLICY IF EXISTS "Admins can insert tokens" ON qr_tokens;
-CREATE POLICY "Admins can insert tokens" ON qr_tokens FOR INSERT WITH CHECK (
-  EXISTS (SELECT 1 FROM public.users WHERE id = auth.uid() AND role = 'admin')
+-- =====================================================
+-- 4. DAILY_STATUS (gün kapatma)
+-- =====================================================
+CREATE TABLE IF NOT EXISTS daily_status (
+    id UUID DEFAULT gen_random_uuid() PRIMARY KEY,
+    date DATE NOT NULL UNIQUE,
+    is_closed BOOLEAN DEFAULT false,
+    closed_by TEXT,
+    closed_at TIMESTAMPTZ
 );
 
-DROP POLICY IF EXISTS "Everyone can read kiosk tokens" ON qr_tokens;
-CREATE POLICY "Everyone can read kiosk tokens" ON qr_tokens FOR SELECT USING (type = 'kiosk_daily');
+ALTER TABLE daily_status ENABLE ROW LEVEL SECURITY;
+DROP POLICY IF EXISTS "public_daily_status_access" ON daily_status;
+CREATE POLICY "public_daily_status_access" ON daily_status FOR ALL USING (true) WITH CHECK (true);
 
-DROP POLICY IF EXISTS "Kiosk can insert daily tokens" ON qr_tokens;
-CREATE POLICY "Kiosk can insert daily tokens" ON qr_tokens FOR INSERT WITH CHECK (type = 'kiosk_daily');
-
-DROP POLICY IF EXISTS "Users can read their own re-entry tokens" ON qr_tokens;
-CREATE POLICY "Users can read their own re-entry tokens" ON qr_tokens FOR SELECT USING (
-  assigned_user_id = auth.uid()
-);
-
--- 4. RPC FONKSİYONLARI
-
--- A. Asistan Listesini Getir (Sadece Admin)
-CREATE OR REPLACE FUNCTION public.get_assistants_list()
-RETURNS TABLE (
-  id UUID,
-  email VARCHAR,
-  role TEXT,
-  is_locked_out BOOLEAN
+-- =====================================================
+-- 5. RPC: Aylık Analizler
+-- =====================================================
+CREATE OR REPLACE FUNCTION get_monthly_analytics(target_date DATE)
+RETURNS TABLE(
+    user_id UUID,
+    user_name TEXT,
+    total_work_days BIGINT,
+    avg_entry_time TEXT,
+    avg_exit_time TEXT,
+    total_hours NUMERIC
 ) 
+LANGUAGE plpgsql
 SECURITY DEFINER
 AS $$
 BEGIN
-  IF NOT EXISTS (SELECT 1 FROM public.users WHERE id = auth.uid() AND role = 'admin') THEN
-    RAISE EXCEPTION 'Access denied. Only admins can list assistants.';
-  END IF;
-
-  RETURN QUERY 
-  SELECT u.id, au.email::VARCHAR, u.role, u.is_locked_out
-  FROM public.users u
-  JOIN auth.users au ON u.id = au.id
-  WHERE u.role = 'assistant';
+    RETURN QUERY
+    SELECT 
+        u.id AS user_id,
+        u.name AS user_name,
+        COUNT(DISTINCT DATE(a.timestamp)) AS total_work_days,
+        TO_CHAR(AVG(a.timestamp::time) FILTER (WHERE a.type = 'check_in'), 'HH24:MI') AS avg_entry_time,
+        TO_CHAR(AVG(a.timestamp::time) FILTER (WHERE a.type = 'check_out'), 'HH24:MI') AS avg_exit_time,
+        ROUND(EXTRACT(EPOCH FROM SUM(
+            CASE WHEN a.type = 'check_out' THEN 
+                (a.timestamp - LAG(a.timestamp) OVER (PARTITION BY a.user_id, DATE(a.timestamp) ORDER BY a.timestamp))
+            END
+        )) / 3600, 1) AS total_hours
+    FROM users u
+    LEFT JOIN attendance a ON u.id = a.user_id
+        AND EXTRACT(MONTH FROM a.timestamp) = EXTRACT(MONTH FROM target_date)
+        AND EXTRACT(YEAR FROM a.timestamp) = EXTRACT(YEAR FROM target_date)
+    WHERE u.role != 'admin'
+    GROUP BY u.id, u.name
+    ORDER BY u.name;
 END;
-$$ LANGUAGE plpgsql;
+$$;
 
--- B. Asistan Şifresi Sıfırla ve Kilidi Aç (Admin Only)
-CREATE OR REPLACE FUNCTION public.admin_generate_reentry_credentials(target_user_id UUID, new_password TEXT)
-RETURNS VOID
+-- =====================================================
+-- 6. RPC: Giriş Token İşleme
+-- =====================================================
+CREATE OR REPLACE FUNCTION process_reentry_token(token_text TEXT)
+RETURNS JSON
+LANGUAGE plpgsql
 SECURITY DEFINER
 AS $$
+DECLARE
+    v_token_record RECORD;
 BEGIN
-  IF NOT EXISTS (SELECT 1 FROM public.users WHERE id = auth.uid() AND role = 'admin') THEN
-    RAISE EXCEPTION 'Access denied.';
-  END IF;
+    -- Token'ı bul ve kontrol et
+    SELECT * INTO v_token_record
+    FROM qr_tokens
+    WHERE token = token_text
+    AND used_at IS NULL
+    AND expires_at > now();
 
-  IF NOT EXISTS (SELECT 1 FROM public.users WHERE id = target_user_id AND role = 'assistant') THEN
-    RAISE EXCEPTION 'Invalid target user.';
-  END IF;
+    IF NOT FOUND THEN
+        RETURN json_build_object('success', false, 'error', 'Geçersiz veya süresi dolmuş QR');
+    END IF;
 
-  UPDATE auth.users
-  SET encrypted_password = crypt(new_password, gen_salt('bf')),
-      updated_at = now()
-  WHERE id = target_user_id;
+    -- Token'ı kullanıldı olarak işaretle
+    UPDATE qr_tokens SET used_at = now() WHERE id = v_token_record.id;
 
-  UPDATE public.users
-  SET is_locked_out = false
-  WHERE id = target_user_id;
+    -- Kullanıcının kilidini aç
+    UPDATE users SET is_locked_out = false WHERE id = v_token_record.assigned_user_id;
+
+    RETURN json_build_object('success', true, 'user_id', v_token_record.assigned_user_id);
 END;
-$$ LANGUAGE plpgsql;
-
--- C. Çıkış Yaparken Kilitle (Lockout)
-CREATE OR REPLACE FUNCTION public.lock_current_user()
-RETURNS VOID
-SECURITY DEFINER
-AS $$
-BEGIN
-  UPDATE public.users
-  SET is_locked_out = true
-  WHERE id = auth.uid();
-END;
-$$ LANGUAGE plpgsql;
-
--- İzinleri Ver
-GRANT EXECUTE ON FUNCTION public.get_assistants_list() TO authenticated;
-GRANT EXECUTE ON FUNCTION public.admin_generate_reentry_credentials(UUID, TEXT) TO authenticated;
-GRANT EXECUTE ON FUNCTION public.lock_current_user() TO authenticated;
+$$;

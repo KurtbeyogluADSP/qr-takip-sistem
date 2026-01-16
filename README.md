@@ -1,32 +1,57 @@
-# Kurtbeyoğlu ADSP - QR Takip Sistemi
+# Kurtbeyoğlu ADSP - Personel QR Takip Sistemi
 
-Personel giriş-çıkış takibi ve Kiosk yönetimi için geliştirilmiş modern web uygulaması.
+Diş kliniği personel giriş-çıkış takip sistemi.
 
 ## Özellikler
 
-- **QR ile Temassız Giriş/Çıkış:** Personel kişisel QR kodunu okutarak işlem yapar.
-- **Kiosk Modu:** Tablet veya PC'de sürekli açık duran QR okuma ekranı.
-- **Admin Paneli:** Kullanıcı yönetimi, geçmiş takibi ve "Günü Kapatma" özelliği.
-- **Güvenlik (Strict Re-entry):** Uygulamadan çıkış yapan personel kilitlenir, sadece Admin açabilir.
-- **Puan Sistemi:** (Opsiyonel/Gizli) Görev puanlama altyapısı mevcuttur.
+### Resepsiyon Kiosk (`/kiosk`)
+- Sürekli değişen QR kod (45 saniyede bir yenilenir)
+- Sabah giriş, akşam çıkış için okutulur
 
-## Hızlı Başlangıç
+### Admin Paneli (`/admin`)
+- **Giriş:** `admin` / `dtberk123`
+- Kullanıcı ekleme/düzenleme/silme
+- Çalışan için giriş QR oluşturma
+- Aylık çalışma analizleri ve raporlar
 
-### Kiosk Ekranını Açma (Banko/Giriş)
-1. Tarayıcıda `https://[uygulama-adresi]/kiosk` adresine gidin.
-2. Sayfa açılınca tam ekran yapın (F11).
-3. Günlük QR otomatik olarak ekranda belirecektir.
+### Çalışan Uygulaması (`/assistant`)
+- İlk giriş: Admin QR okutarak cihaz bağlama
+- Günlük: Resepsiyon QR okutarak giriş/çıkış
 
-### Admin Girişi
-- `/login` adresinden yönetici hesabı ile giriş yapın.
+## Akış
 
-## Teknik Bilgiler
-- **Framework:** React + Vite
-- **Veritabanı:** Supabase
-- **Styling:** TailwindCSS
+```
+1. Admin kullanıcı oluşturur
+2. Admin, çalışan için giriş QR oluşturur
+3. Çalışan telefonundan QR okutarak GİRER (tek seferlik)
+4. Artık o telefon o çalışana bağlı - başkası kullanamaz
+5. Her gün resepsiyondaki QR'ı okutarak giriş/çıkış yapar
+```
 
-## Kurulum (Geliştirici)
+## Hata Durumları
+
+| Hata | Çözüm |
+|------|-------|
+| "Uygulama kapandı" | Berk Hoca'ya gidin, yeni giriş QR alın |
+| "QR süresi doldu" | Bekleyin, QR 45 saniyede yenilenir |
+| "Geçersiz QR" | Doğru QR'ı okuttuğunuzdan emin olun |
+
+## Kurulum
+
 ```bash
 npm install
 npm run dev
 ```
+
+## Ortam Değişkenleri (.env)
+
+```
+VITE_SUPABASE_URL=your_supabase_url
+VITE_SUPABASE_ANON_KEY=your_anon_key
+```
+
+## Teknolojiler
+
+- React + TypeScript + Vite
+- Tailwind CSS
+- Supabase (veritabanı)

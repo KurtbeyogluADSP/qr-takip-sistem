@@ -6,12 +6,8 @@ import AssistantLayout from './layouts/AssistantLayout';
 import KioskPage from './pages/KioskPage';
 import LockedPage from './pages/LockedPage';
 import AssistantScan from './pages/AssistantScan';
-
-import AssistantTasks from './pages/AssistantTasks';
-
 import Login from './pages/LoginPage';
 import AdminDashboard from './pages/AdminDashboard';
-
 import AdminReEntry from './pages/AdminReEntry';
 import AdminUsers from './pages/AdminUsers';
 import AdminAnalytics from './pages/AdminAnalytics';
@@ -21,28 +17,29 @@ function App() {
     <AuthProvider>
       <BrowserRouter>
         <Routes>
-          {/* Public / Common */}
+          {/* Giriş */}
           <Route path="/login" element={<Login />} />
 
-          {/* Kiosk Mode - Dedicated Layout/Page */}
+          {/* Resepsiyon Kiosk - Sürekli değişen QR */}
           <Route path="/kiosk" element={<KioskPage />} />
+
+          {/* Kilitli hesap sayfası */}
           <Route path="/locked" element={<LockedPage />} />
 
-          {/* Admin Routes */}
+          {/* Admin Panel */}
           <Route path="/admin" element={<AdminLayout />}>
             <Route index element={<AdminDashboard />} />
             <Route path="re-entry" element={<AdminReEntry />} />
-            <Route path="/admin/users" element={<AdminUsers />} />
-            <Route path="/admin/analytics" element={<AdminAnalytics />} />
+            <Route path="users" element={<AdminUsers />} />
+            <Route path="analytics" element={<AdminAnalytics />} />
           </Route>
 
-
-          {/* Assistant Routes */}
+          {/* Çalışan Sayfaları */}
           <Route path="/assistant" element={<AssistantLayout />}>
             <Route path="scan" element={<AssistantScan />} />
-            <Route path="tasks" element={<AssistantTasks />} />
           </Route>
 
+          {/* Ana sayfa -> Login'e yönlendir */}
           <Route path="/" element={<Navigate to="/login" replace />} />
         </Routes>
       </BrowserRouter>
