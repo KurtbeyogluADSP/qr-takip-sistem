@@ -1,91 +1,89 @@
-import React, { createContext, useContext, useEffect, useState } from 'react';
-import type { User, Session } from '@supabase/supabase-js';
-import { supabase } from '../lib/supabase';
-import type { Profile } from '../types';
+import React, { createContext, useContext, useState, useEffect } from 'react';
 
 type AuthContextType = {
-    user: User | null;
-    session: Session | null;
-    profile: Profile | null;
-    isLoading: boolean;
-    signOut: () => Promise<void>;
     isAdmin: boolean;
+    isLoading: boolean;
+    login: (username: string, password: string) => boolean;
+    logout: () => void;
+    // Çalışan seçimi için
+    selectedUserId: string | null;
+    selectedUserName: string | null;
+    setSelectedUser: (id: string | null, name: string | null) => void;
+    clearSelectedUser: () => void;
 };
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
 
+// Sabit admin bilgileri - Klinik için yeterli güvenlik
+const ADMIN_USERNAME = 'admin';
+const ADMIN_PASSWORD = 'dtberk123';
+
 export function AuthProvider({ children }: { children: React.ReactNode }) {
-    const [user, setUser] = useState<User | null>(null);
-    const [session, setSession] = useState<Session | null>(null);
-    const [profile, setProfile] = useState<Profile | null>(null);
+    const [isAdmin, setIsAdmin] = useState(false);
     const [isLoading, setIsLoading] = useState(true);
+    const [selectedUserId, setSelectedUserId] = useState<string | null>(null);
+    const [selectedUserName, setSelectedUserName] = useState<string | null>(null);
 
     useEffect(() => {
-        // Check active sessions and sets the user
-        supabase.auth.getSession().then(({ data: { session } }) => {
-            setSession(session);
-            setUser(session?.user ?? null);
-            if (session?.user) fetchProfile(session.user.id);
-            else setIsLoading(false);
-        });
+        // Sayfa yüklendiğinde localStorage kontrol et
+        const adminLoggedIn = localStorage.getItem('adminLoggedIn') === 'true';
+        setIsAdmin(adminLoggedIn);
 
-        // Listen for changes on auth state (logged in, signed out, etc.)
-        const { data: { subscription } } = supabase.auth.onAuthStateChange((_event, session) => {
-            setSession(session);
-            setUser(session?.user ?? null);
-            if (session?.user) fetchProfile(session.user.id);
-            else {
-                setProfile(null);
-                setIsLoading(false);
-            }
-        });
+        // Çalışan seçimi de localStorage'dan
+        const storedUserId = localStorage.getItem('selectedUserId');
+        const storedUserName = localStorage.getItem('selectedUserName');
+        if (storedUserId) {
+            setSelectedUserId(storedUserId);
+            setSelectedUserName(storedUserName);
+        }
 
-        return () => subscription.unsubscribe();
+        setIsLoading(false);
     }, []);
 
-    const fetchProfile = async (userId: string) => {
-        try {
-            const { data, error } = await supabase
-                .from('users')
-                .select('*')
-                .eq('id', userId)
-                .single();
-
-            if (error && error.code !== 'PGRST116') {
-                console.error('Error fetching profile:', error);
-            }
-
-            setProfile(data);
-        } catch (error) {
-            console.error('Error in profile fetch:', error);
-        } finally {
-            setIsLoading(false);
+    const login = (username: string, password: string): boolean => {
+        if (username === ADMIN_USERNAME && password === ADMIN_PASSWORD) {
+            localStorage.setItem('adminLoggedIn', 'true');
+            setIsAdmin(true);
+            return true;
         }
+        return false;
     };
 
-    const signOut = async () => {
-        // Enforce Strict Re-entry for Assistants
-        if (profile?.role === 'assistant') {
-            try {
-                // We lock them out before signing out
-                await supabase.rpc('lock_current_user');
-            } catch (err) {
-                console.error("Failed to lock user on logout:", err);
-            }
+    const logout = () => {
+        localStorage.removeItem('adminLoggedIn');
+        localStorage.removeItem('selectedUserId');
+        localStorage.removeItem('selectedUserName');
+        setIsAdmin(false);
+        setSelectedUserId(null);
+        setSelectedUserName(null);
+    };
+
+    const setSelectedUser = (id: string | null, name: string | null) => {
+        if (id && name) {
+            localStorage.setItem('selectedUserId', id);
+            localStorage.setItem('selectedUserName', name);
         }
-        await supabase.auth.signOut();
-        setUser(null);
-        setProfile(null);
+        setSelectedUserId(id);
+        setSelectedUserName(name);
+    };
+
+    const clearSelectedUser = () => {
+        localStorage.removeItem('selectedUserId');
+        localStorage.removeItem('selectedUserName');
+        setSelectedUserId(null);
+        setSelectedUserName(null);
     };
 
     return (
         <AuthContext.Provider value={{
-            user,
-            session,
-            profile,
+            isAdmin,
             isLoading,
-            signOut,
-            isAdmin: profile?.role === 'admin'
+            login,
+            logout,
+            selectedUserId,
+            selectedUserName,
+            setSelectedUser,
+            clearSelectedUser
         }}>
             {children}
         </AuthContext.Provider>

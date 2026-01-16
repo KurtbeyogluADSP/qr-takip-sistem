@@ -1,24 +1,22 @@
 
-import { Outlet, Link, useLocation, useNavigate, Navigate } from 'react-router-dom';
-import { QrCode, LogOut } from 'lucide-react';
+import { Outlet, Link, useLocation, useNavigate } from 'react-router-dom';
+import { QrCode, LogOut, User } from 'lucide-react';
 import { useAuth } from '../components/AuthProvider';
 import clsx from 'clsx';
 
 export default function AssistantLayout() {
     const { pathname } = useLocation();
-    const { signOut, profile, isLoading } = useAuth();
+    const { clearSelectedUser, selectedUserName, isLoading } = useAuth();
     const navigate = useNavigate();
 
-    // STRICT LOCK ENFORCEMENT
-    // If user is designated as 'locked out', force them to the Locked Page
-    if (!isLoading && profile?.is_locked_out && !pathname.includes('locked')) {
-        // Using window.location to ensure a hard redirect/refresh if needed, or just Navigate
-        // But Navigate component is better for UX.
-        return <Navigate to="/locked" replace />;
+    // Kullanıcı seçilmemişse login'e yönlendir
+    if (!isLoading && !selectedUserName) {
+        navigate('/login');
+        return null;
     }
 
-    const handleSignOut = async () => {
-        await signOut();
+    const handleSignOut = () => {
+        clearSelectedUser();
         navigate('/login');
     };
 
@@ -26,7 +24,10 @@ export default function AssistantLayout() {
         <div className="min-h-screen bg-gray-50 pb-20">
             {/* Header */}
             <header className="bg-white border-b border-gray-200 px-4 py-3 flex justify-between items-center sticky top-0 z-30">
-                <h1 className="font-bold text-lg text-blue-900">Assistant</h1>
+                <div className="flex items-center gap-2">
+                    <User size={20} className="text-blue-600" />
+                    <h1 className="font-bold text-lg text-blue-900">{selectedUserName || 'Çalışan'}</h1>
+                </div>
                 <button onClick={handleSignOut} className="text-gray-500 hover:text-red-600">
                     <LogOut size={20} />
                 </button>
@@ -47,22 +48,8 @@ export default function AssistantLayout() {
                     )}
                 >
                     <QrCode size={24} />
-                    <span>Attendance</span>
+                    <span>Yoklama</span>
                 </Link>
-                {/* 
-                // TASK FEATURE HIDDEN PER USER REQUEST (Simplification)
-                // Uncomment to re-enable
-                <Link
-                    to="/assistant/tasks"
-                    className={clsx(
-                        "flex flex-col items-center gap-1 text-xs font-medium",
-                        pathname.includes('tasks') ? "text-blue-600" : "text-gray-400"
-                    )}
-                >
-                    <ClipboardList size={24} />
-                    <span>Tasks</span>
-                </Link> 
-                */}
             </nav>
         </div>
     );

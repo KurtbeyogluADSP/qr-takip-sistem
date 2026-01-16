@@ -11,37 +11,34 @@ type Task = {
     task_type: 'sterilization' | 'macro' | 'stock' | 'duty';
     completed_at: string | null;
     week_number: number;
-    due_date?: string; // New field for daily tracking
+    due_date?: string;
 };
 
 const TASK_ROLES = [
-    { type: 'sterilization', title: 'Sterilization & Hygiene' },
-    { type: 'macro', title: 'Macro Photography & Media' },
-    { type: 'stock', title: 'Stock & Inventory Control' },
-    { type: 'duty', title: 'General Duty & Patient Care' }
+    { type: 'sterilization', title: 'Sterilizasyon & Hijyen' },
+    { type: 'macro', title: 'Makro Fotoğraf & Medya' },
+    { type: 'stock', title: 'Stok & Envanter Kontrolü' },
+    { type: 'duty', title: 'Genel Görev & Hasta Bakımı' }
 ] as const;
 
 export default function AssistantTasks() {
-    const { user } = useAuth();
+    const { selectedUserId } = useAuth();
     const [tasks, setTasks] = useState<Task[]>([]);
     const [loading, setLoading] = useState(true);
     const [weekNumber] = useState(getISOWeek(new Date()));
     const [assignedRole, setAssignedRole] = useState<typeof TASK_ROLES[number] | null>(null);
 
     useEffect(() => {
-        if (user) {
+        if (selectedUserId) {
             determineRoleAndFetchTasks();
         }
-    }, [user, weekNumber]);
+    }, [selectedUserId, weekNumber]);
 
     const determineRoleAndFetchTasks = async () => {
         setLoading(true);
         try {
-            // 1. Determine Role based on User Rotation
-            // Logic: (WeekNum + UserHash) % 4
-            // This ensures rotation every week and distribution across users
-            if (user) {
-                const userHash = user.id.split('').reduce((acc, char) => acc + char.charCodeAt(0), 0);
+            if (selectedUserId) {
+                const userHash = selectedUserId.split('').reduce((acc: number, char: string) => acc + char.charCodeAt(0), 0);
                 const roleIndex = (weekNumber + userHash) % TASK_ROLES.length;
                 const role = TASK_ROLES[roleIndex];
                 setAssignedRole(role);
@@ -56,43 +53,36 @@ export default function AssistantTasks() {
     };
 
     const fetchAndEnsureTasks = async (role: typeof TASK_ROLES[number]) => {
-        // 2. Try to fetch existing tasks for this week
         const { data, error } = await supabase
             .from('tasks')
             .select('*')
-            .eq('user_id', user?.id)
+            .eq('user_id', selectedUserId)
             .eq('week_number', weekNumber)
-            .order('due_date', { ascending: true }); // Order by date (Mon->Sat)
+            .order('due_date', { ascending: true });
 
         if (error) throw error;
 
         if (data && data.length > 0) {
             setTasks(data);
         } else {
-            // 3. Generate Daily Tasks if none exist (Mon-Sat)
             await generateDailyTasksForRole(role);
         }
     };
 
     const generateDailyTasksForRole = async (role: typeof TASK_ROLES[number]) => {
-        if (!user) return;
+        if (!selectedUserId) return;
 
-        // Generate dates for current week Mon-Sat
-        // Note: startOfWeek defaults to Sunday, so we adjust
-        const startOfCurrentWeek = startOfWeek(new Date(), { weekStartsOn: 1 }); // Monday
+        const startOfCurrentWeek = startOfWeek(new Date(), { weekStartsOn: 1 });
         const tasksToInsert = [];
 
-        for (let i = 0; i < 6; i++) { // 0=Mon, 5=Sat
+        for (let i = 0; i < 6; i++) {
             const date = addDays(startOfCurrentWeek, i);
             tasksToInsert.push({
-                user_id: user.id,
+                user_id: selectedUserId,
                 week_number: weekNumber,
                 task_type: role.type,
-                title: `${role.title} - ${format(date, 'EEEE')}`, // e.g. "Sterilization - Monday"
+                title: `${role.title} - ${format(date, 'EEEE')}`,
                 completed_at: null,
-                // We'll store the target date in 'created_at' strictly or add a new column via SQL if strictly needed.
-                // For MVP without migrating DB schema again, we can misuse 'created_at' or rely on title/order.
-                // Actually, let's just assume the order is correct. Best effort for prototype.
             });
         }
 
@@ -112,7 +102,6 @@ export default function AssistantTasks() {
         const isCompleted = !!task.completed_at;
         const newStatus = isCompleted ? null : new Date().toISOString();
 
-        // Optimistic UI Update
         setTasks(prev => prev.map(t =>
             t.id === task.id ? { ...t, completed_at: newStatus } : t
         ));
@@ -124,7 +113,6 @@ export default function AssistantTasks() {
 
         if (error) {
             console.error('Error updating task:', error);
-            // Revert on error
             setTasks(prev => prev.map(t =>
                 t.id === task.id ? { ...t, completed_at: task.completed_at } : t
             ));
@@ -132,7 +120,7 @@ export default function AssistantTasks() {
     };
 
     const completedCount = tasks.filter(t => t.completed_at).length;
-    const totalTasks = tasks.length || 6; // Default to 6 if loading
+    const totalTasks = tasks.length || 6;
     const progress = (completedCount / totalTasks) * 100;
 
     if (loading) {
@@ -148,8 +136,8 @@ export default function AssistantTasks() {
             <header className="mb-6">
                 <div className="flex justify-between items-start">
                     <div>
-                        <h2 className="text-xl font-bold text-gray-800">Weekly Assignment</h2>
-                        <p className="text-sm text-gray-500">Week {weekNumber}</p>
+                        <h2 className="text-xl font-bold text-gray-800">Haftalık Görev</h2>
+                        <p className="text-sm text-gray-500">Hafta {weekNumber}</p>
                     </div>
                     {assignedRole && (
                         <span className="px-3 py-1 bg-blue-100 text-blue-800 text-xs font-bold rounded-full uppercase">
@@ -162,10 +150,10 @@ export default function AssistantTasks() {
                     <div className="mt-4 p-4 bg-gradient-to-r from-blue-600 to-indigo-600 rounded-2xl text-white shadow-lg shadow-blue-200">
                         <div className="flex items-center gap-2 opacity-80 mb-1 text-xs uppercase tracking-wide font-semibold">
                             <CalendarDays size={14} />
-                            Your Role
+                            Rolünüz
                         </div>
                         <h3 className="text-2xl font-bold">{assignedRole.title}</h3>
-                        <p className="opacity-90 text-sm mt-1">Complete your daily checklist to earn the weekly bonus.</p>
+                        <p className="opacity-90 text-sm mt-1">Haftalık bonus için günlük kontrol listesini tamamlayın.</p>
                     </div>
                 )}
             </header>
@@ -196,7 +184,7 @@ export default function AssistantTasks() {
                                     "font-medium transition-all",
                                     isCompleted ? "text-blue-900 line-through opacity-70" : "text-gray-800"
                                 )}>
-                                    {task.title.split(' - ')[1] || task.title} {/* Show just the day name if formatted */}
+                                    {task.title.split(' - ')[1] || task.title}
                                 </h3>
                                 <p className="text-xs text-gray-400 capitalize flex items-center gap-1">
                                     <span className="w-1.5 h-1.5 rounded-full bg-gray-300"></span>
@@ -218,7 +206,7 @@ export default function AssistantTasks() {
             <div className="fixed bottom-20 left-4 right-4 max-w-md mx-auto">
                 <div className="p-4 bg-white/90 backdrop-blur-md rounded-2xl shadow-xl border border-amber-100">
                     <div className="flex justify-between font-semibold mb-2 text-sm text-gray-700">
-                        <span>Weekly Progress</span>
+                        <span>Haftalık İlerleme</span>
                         <span className="text-blue-600 font-mono">{completedCount}/{totalTasks}</span>
                     </div>
                     <div className="w-full bg-gray-100 h-3 rounded-full overflow-hidden">
@@ -233,12 +221,12 @@ export default function AssistantTasks() {
                     {completedCount === totalTasks ? (
                         <div className="mt-3 text-center animate-bounce-short">
                             <span className="inline-flex items-center gap-1.5 px-3 py-1 bg-green-100 text-green-700 rounded-full text-xs font-bold border border-green-200">
-                                🎉 Bonus Unlocked! (+1000 TRY)
+                                🎉 Bonus Açıldı! (+1000 TRY)
                             </span>
                         </div>
                     ) : (
                         <p className="text-center text-xs text-gray-400 mt-2">
-                            Complete all {totalTasks} days to unlock bonus
+                            Bonus için {totalTasks} günü tamamlayın
                         </p>
                     )}
                 </div>

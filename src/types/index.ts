@@ -1,8 +1,9 @@
 export type Profile = {
     id: string;
-    email: string;
-    full_name: string;
-    role: 'admin' | 'assistant';
+    email?: string;
+    full_name?: string;
+    name?: string;
+    role: 'admin' | 'assistant' | 'physician' | 'staff';
     is_locked_out?: boolean;
     created_at: string;
 };

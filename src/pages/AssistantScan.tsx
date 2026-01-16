@@ -5,7 +5,7 @@ import { useAuth } from '../components/AuthProvider';
 import fpPromise from '@fingerprintjs/fingerprintjs';
 
 export default function AssistantScan() {
-    const { user } = useAuth();
+    const { selectedUserId, selectedUserName } = useAuth();
     const [scanResult, setScanResult] = useState<{
         success: boolean;
         message: string;
@@ -34,7 +34,6 @@ export default function AssistantScan() {
     }, [isScanning]);
 
     const onScanSuccess = async (decodedText: string) => {
-        // Stop scanning immediately to prevent duplicate calls
         setIsScanning(false);
 
         try {
@@ -42,58 +41,50 @@ export default function AssistantScan() {
         } catch (error: any) {
             setScanResult({
                 success: false,
-                message: 'Error processing QR',
+                message: 'QR İşleme Hatası',
                 details: error.message
             });
         }
     };
 
     const onScanFailure = (_error: any) => {
-        // console.warn(error); // Ignore frame failures
+        // Ignore frame failures
     };
 
     const processScan = async (token: string) => {
-        // Token Logic used: kiosk:type:timestamp:random OR re_entry:timestamp:random
         const parts = token.split(':');
-        const tokenType = parts[0]; // 'kiosk' or 're_entry'
+        const tokenType = parts[0];
 
         if (tokenType !== 'kiosk' && tokenType !== 're_entry') {
-            throw new Error("Invalid QR Code Format");
+            throw new Error("Geçersiz QR Kod Formatı");
         }
 
         let type = '';
         let timestamp = 0;
 
         if (tokenType === 'kiosk') {
-            type = parts[1]; // check_in / check_out
+            type = parts[1];
             timestamp = parseInt(parts[2], 10);
 
-            // 1. Time Validation for Kiosk (45s + 5s buffer = 50s)
             const now = Date.now();
             if (now - timestamp > 50000) {
-                throw new Error("QR Code Expired. Please wait for refresh.");
+                throw new Error("QR Kod süresi doldu. Lütfen yenilenmesini bekleyin.");
             }
         } else if (tokenType === 're_entry') {
-            type = 'check_in'; // Re-entry counts as a check-in
+            type = 'check_in';
             timestamp = parseInt(parts[1], 10);
 
-            // Re-entry tokens are valid for 5 minutes (300000ms)
             if (Date.now() - timestamp > 300000) {
-                throw new Error("Re-entry QR Expired.");
+                throw new Error("Tekrar Giriş QR süresi doldu.");
             }
         }
 
-        // 2. Fingerprint
+        // Fingerprint
         const fp = await fpPromise.load();
         const result = await fp.get();
         const deviceId = result.visitorId;
 
-        // 3. Anti-Fraud Check: One device = one check-in per day
-        // Only check for check_in types, re-entry might be an exception or also enforced?
-        // Requirement: "One device_id = one check-in per day"
-        // Let's enforce it for standard 'check_in', but maybe allow 're_entry' to bypass?
-        // "Logout requires admin re-entry QR" -> implies re-entry is the exception.
-
+        // Anti-Fraud Check
         if (type === 'check_in' && tokenType === 'kiosk') {
             const startOfDay = new Date();
             startOfDay.setHours(0, 0, 0, 0);
@@ -106,16 +97,16 @@ export default function AssistantScan() {
                 .gte('timestamp', startOfDay.toISOString());
 
             if (existing && existing.length > 0) {
-                throw new Error("Fraud Alert: This device has already checked in today!");
+                throw new Error("Uyarı: Bu cihaz bugün zaten giriş yapmış!");
             }
         }
 
-        // 4. Submit to Supabase
+        // Submit to Supabase
         const { error } = await supabase
             .from('attendance')
             .insert({
-                user_id: user?.id,
-                type: type, // 'check_in' or 'check_out'
+                user_id: selectedUserId,
+                type: type,
                 timestamp: new Date().toISOString(),
                 device_id: deviceId,
                 qr_token: token,
@@ -128,8 +119,8 @@ export default function AssistantScan() {
 
         setScanResult({
             success: true,
-            message: `Successfully ${type === 'check_in' ? 'Checked In' : 'Checked Out'}!`,
-            details: `Device ID: ${deviceId} (${tokenType})`
+            message: `${type === 'check_in' ? 'Giriş' : 'Çıkış'} Başarılı!`,
+            details: `Kullanıcı: ${selectedUserName}`
         });
     };
 
@@ -140,12 +131,12 @@ export default function AssistantScan() {
 
     return (
         <div className="flex flex-col items-center p-4 max-w-md mx-auto">
-            <h2 className="text-xl font-bold mb-6 text-gray-800">Scan Kiosk QR</h2>
+            <h2 className="text-xl font-bold mb-6 text-gray-800">Kiosk QR Okut</h2>
 
             {!scanResult ? (
                 <div className="w-full bg-white rounded-xl shadow-lg p-4 overflow-hidden">
                     <div id="reader" className="w-full"></div>
-                    <p className="text-center text-sm text-gray-500 mt-4">Point at the reception screen</p>
+                    <p className="text-center text-sm text-gray-500 mt-4">Resepsiyon ekranına tutun</p>
                 </div>
             ) : (
                 <div className={`w-full p-6 rounded-xl shadow-lg text-center ${scanResult.success ? 'bg-green-50 text-green-800' : 'bg-red-50 text-red-800'}`}>
@@ -157,7 +148,7 @@ export default function AssistantScan() {
                         onClick={resetScanner}
                         className="mt-6 w-full bg-white border border-gray-200 py-3 rounded-lg font-semibold shadow-sm text-gray-700 hover:bg-gray-50"
                     >
-                        Scan Again
+                        Tekrar Okut
                     </button>
                 </div>
             )}

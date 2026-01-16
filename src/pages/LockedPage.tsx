@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { supabase } from '../lib/supabase';
 import { useAuth } from '../components/AuthProvider';
@@ -6,18 +6,11 @@ import { Scanner } from '@yudiel/react-qr-scanner';
 import { Lock, LogOut } from 'lucide-react';
 
 export default function LockedPage() {
-    const { signOut, profile } = useAuth();
+    const { clearSelectedUser, selectedUserName } = useAuth();
     const navigate = useNavigate();
     const [isScanning, setIsScanning] = useState(false);
     const [error, setError] = useState<string | null>(null);
     const [success, setSuccess] = useState<string | null>(null);
-
-    // If unlocked externally, redirect automatically
-    useEffect(() => {
-        if (profile && !profile.is_locked_out) {
-            navigate('/assistant/scan');
-        }
-    }, [profile, navigate]);
 
     const handleScan = async (result: any) => {
         if (!result) return;
@@ -28,25 +21,28 @@ export default function LockedPage() {
         setError(null);
 
         try {
-            const { data: _data, error: _error } = await supabase.rpc('process_reentry_token', {
+            const { error: rpcError } = await supabase.rpc('process_reentry_token', {
                 token_text: token
             });
 
-            if (error) throw error;
+            if (rpcError) throw rpcError;
 
-            setSuccess("Unlock Successful! Redirecting...");
+            setSuccess("Kilit Açıldı! Yönlendiriliyor...");
 
-            // Refresh profile logic triggers via AuthProvider subscription usually, but we can force redirect
-            // Ideally we wait for AuthProvider to see the update, but let's give it a moment
             setTimeout(() => {
                 window.location.href = '/assistant/scan';
             }, 1000);
 
         } catch (err: any) {
             console.error(err);
-            setError(err.message || "Invalid Token");
-            setIsScanning(true); // Retry
+            setError(err.message || "Geçersiz Token");
+            setIsScanning(true);
         }
+    };
+
+    const handleSignOut = () => {
+        clearSelectedUser();
+        navigate('/login');
     };
 
     return (
@@ -56,9 +52,12 @@ export default function LockedPage() {
                     <Lock size={48} className="text-red-600" />
                 </div>
 
-                <h1 className="text-2xl font-bold text-red-700 mb-2">Account Locked</h1>
+                <h1 className="text-2xl font-bold text-red-700 mb-2">Hesap Kilitli</h1>
+                <p className="text-slate-500 mb-2">
+                    <strong>{selectedUserName}</strong>
+                </p>
                 <p className="text-slate-500 mb-8">
-                    Your session has ended. To resume access, you must scan the Re-entry QR code provided by the Admin.
+                    Oturumunuz sonlandı. Devam etmek için Admin'den Tekrar Giriş QR kodu alın.
                 </p>
 
                 {error && (
@@ -87,7 +86,7 @@ export default function LockedPage() {
                                     onClick={() => setIsScanning(true)}
                                     className="bg-blue-600 px-6 py-3 rounded-xl font-bold hover:bg-blue-700 transition"
                                 >
-                                    Tap to Scan Admin QR
+                                    Admin QR Okutmak İçin Dokun
                                 </button>
                             )}
                         </div>
@@ -96,11 +95,11 @@ export default function LockedPage() {
             </div>
 
             <button
-                onClick={() => signOut()}
+                onClick={handleSignOut}
                 className="mt-8 flex items-center gap-2 text-slate-400 hover:text-slate-600 transition-colors"
             >
                 <LogOut size={16} />
-                <span>Log out completely</span>
+                <span>Tamamen Çıkış Yap</span>
             </button>
         </div>
     );

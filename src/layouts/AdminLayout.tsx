@@ -4,11 +4,17 @@ import { useAuth } from '../components/AuthProvider';
 import { LogOut, LayoutDashboard, QrCode, UserPlus, BarChart2 } from 'lucide-react';
 
 export default function AdminLayout() {
-    const { signOut } = useAuth();
+    const { logout, isAdmin } = useAuth();
     const navigate = useNavigate();
 
-    const handleSignOut = async () => {
-        await signOut();
+    // Admin değilse login'e yönlendir
+    if (!isAdmin) {
+        navigate('/login');
+        return null;
+    }
+
+    const handleSignOut = () => {
+        logout();
         navigate('/login');
     };
 
@@ -31,18 +37,18 @@ export default function AdminLayout() {
                     </Link>
                     <Link to="/admin/users" className="flex items-center gap-3 px-4 py-3 text-gray-700 hover:bg-blue-50 hover:text-blue-700 rounded-lg transition-colors text-left">
                         <UserPlus size={20} />
-                        <span>Manage Users</span>
+                        <span>Kullanıcı Yönetimi</span>
                     </Link>
                     <Link to="/admin/analytics" className="flex items-center gap-3 px-4 py-3 text-gray-700 hover:bg-blue-50 hover:text-blue-700 rounded-lg transition-colors text-left">
                         <BarChart2 size={20} />
-                        <span>Analytics</span>
+                        <span>Raporlar</span>
                     </Link>
                 </nav>
 
                 <div className="p-4 border-t border-gray-100">
                     <button onClick={handleSignOut} className="flex items-center gap-2 text-red-600 hover:text-red-700 px-4 py-2">
                         <LogOut size={18} />
-                        <span>Sign Out</span>
+                        <span>Çıkış Yap</span>
                     </button>
                 </div>
             </aside>
