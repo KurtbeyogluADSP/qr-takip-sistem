@@ -57,6 +57,7 @@ BEGIN
     -- TRICK: We will insert into auth.users. This usually works in Supabase if we are using the 'postgres' role or if we grant permissions.
     -- Let's assume standard extension 'pgcrypto' is available for password hashing.
     
+    -- Insert into auth.users (WITHOUT confirmed_at - it's auto-generated)
     INSERT INTO auth.users (
         instance_id,
         id,
@@ -69,8 +70,7 @@ BEGIN
         updated_at,
         raw_app_meta_data,
         raw_user_meta_data,
-        is_super_admin,
-        confirmed_at
+        is_super_admin
     ) VALUES (
         '00000000-0000-0000-0000-000000000000',
         gen_random_uuid(),
@@ -83,8 +83,7 @@ BEGIN
         now(),
         '{"provider":"email","providers":["email"]}',
         json_build_object('name', new_name),
-        false,
-        now()
+        false
     ) RETURNING id INTO new_user_id;
 
     -- Insert into public.users
