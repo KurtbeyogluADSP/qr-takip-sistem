@@ -69,11 +69,12 @@ export default function LoginPage() {
             if (authData.user) {
                 const { data: profile } = await supabase
                     .from('users')
-                    .select('is_locked_out')
+                    .select('is_locked_out, role')
                     .eq('id', authData.user.id)
                     .single();
 
-                if (profile?.is_locked_out) {
+                // Admin asla kilitlenemez
+                if (profile?.is_locked_out && profile?.role !== 'admin') {
                     await supabase.auth.signOut();
                     throw new Error("Account is locked. Please use Admin Re-entry QR.");
                 }
@@ -101,11 +102,12 @@ export default function LoginPage() {
             if (authData.user) {
                 const { data: profile } = await supabase
                     .from('users')
-                    .select('is_locked_out')
+                    .select('is_locked_out, role')
                     .eq('id', authData.user.id)
                     .single();
 
-                if (profile?.is_locked_out) {
+                // Admin asla kilitlenemez
+                if (profile?.is_locked_out && profile?.role !== 'admin') {
                     await supabase.auth.signOut();
                     throw new Error("Account is locked. Please use Admin Re-entry QR.");
                 }
