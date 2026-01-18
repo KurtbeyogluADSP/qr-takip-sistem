@@ -14,7 +14,6 @@ export default function AssistantScan() {
     const { selectedUserId, selectedUserName } = useAuth();
     const [loading, setLoading] = useState(false);
     const [message, setMessage] = useState<{ type: 'success' | 'error'; text: string } | null>(null);
-    const [location, setLocation] = useState<GeolocationPosition | null>(null);
     const [distance, setDistance] = useState<number | null>(null);
     const [locError, setLocError] = useState<string | null>(null);
 
@@ -46,7 +45,6 @@ export default function AssistantScan() {
 
         navigator.geolocation.getCurrentPosition(
             (position) => {
-                setLocation(position);
                 const dist = calculateDistance(
                     position.coords.latitude,
                     position.coords.longitude,
