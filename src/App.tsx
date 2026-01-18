@@ -11,6 +11,7 @@ import AdminDashboard from './pages/AdminDashboard';
 import AdminReEntry from './pages/AdminReEntry';
 import AdminUsers from './pages/AdminUsers';
 import AdminAnalytics from './pages/AdminAnalytics';
+import KioskPage from './pages/KioskPage';
 
 function App() {
   return (
@@ -20,7 +21,8 @@ function App() {
           {/* Giriş */}
           <Route path="/login" element={<Login />} />
 
-
+          {/* Kiosk Modu */}
+          <Route path="/kiosk" element={<KioskPage />} />
 
           {/* Kilitli hesap sayfası */}
           <Route path="/locked" element={<LockedPage />} />

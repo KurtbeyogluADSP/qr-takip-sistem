@@ -6,7 +6,7 @@ import { supabase } from '../lib/supabase';
 import { Scanner } from '@yudiel/react-qr-scanner';
 
 export default function LoginPage() {
-    const { login, isLoading, selectedUserId, setSelectedUser } = useAuth();
+    const { login, isLoading, selectedUserId, setSelectedUser, isAdmin, isKiosk } = useAuth();
     const navigate = useNavigate();
 
     const [mode, setMode] = useState<'select' | 'admin' | 'staff'>('select');
@@ -18,10 +18,18 @@ export default function LoginPage() {
 
     // Eğer çalışan zaten giriş yapmışsa direkt yönlendir
     useEffect(() => {
+        if (isAdmin) {
+            navigate('/admin');
+            return;
+        }
+        if (isKiosk) {
+            navigate('/kiosk');
+            return;
+        }
         if (selectedUserId) {
             navigate('/assistant/scan');
         }
-    }, [selectedUserId, navigate]);
+    }, [selectedUserId, isAdmin, isKiosk, navigate]);
 
     const handleAdminSubmit = (e: React.FormEvent) => {
         e.preventDefault();
@@ -29,7 +37,10 @@ export default function LoginPage() {
 
         const ok = login(username, password);
         if (ok) {
-            navigate('/admin');
+            // Login hook handles state, useEffect handles redirect
+            // But we can force check here too
+            if (username === 'kiosk') navigate('/kiosk');
+            else navigate('/admin');
         } else {
             setError('Kullanıcı adı veya şifre hatalı');
         }

@@ -11,9 +11,9 @@ const CLINIC_LNG = 28.249029;
 const MAX_DISTANCE_METERS = 300; // 300m tolerans (GPS sapmaları için)
 
 export default function AssistantScan() {
-    const { selectedUserId, selectedUserName } = useAuth();
+    const { selectedUserId, selectedUserName, clearSelectedUser } = useAuth();
     const [loading, setLoading] = useState(false);
-    const [message, setMessage] = useState<{ type: 'success' | 'error'; text: string } | null>(null);
+    const [message, setMessage] = useState<{ type: 'success' | 'check_in_error' | 'error'; text: string } | null>(null);
     const [distance, setDistance] = useState<number | null>(null);
     const [locError, setLocError] = useState<string | null>(null);
 
@@ -42,170 +42,139 @@ export default function AssistantScan() {
             setLoading(false);
             return;
         }
+        const [message, setMessage] = useState<{ type: 'success' | 'error' | 'check_in_error', text: string } | null>(null);
 
-        navigator.geolocation.getCurrentPosition(
-            (position) => {
-                const dist = calculateDistance(
-                    position.coords.latitude,
-                    position.coords.longitude,
-                    CLINIC_LAT,
-                    CLINIC_LNG
-                );
-                setDistance(Math.round(dist));
-                setLoading(false);
-            },
-            (error) => {
-                setLocError("Konum alınamadı. Lütfen GPS izni verin.");
+        const handleKioskScan = async (result: any) => {
+            if (!result) return;
+
+            // QR datayı al (bazen result.text, bazen result[0].rawValue formatında gelebiliyor kütüphaneye göre)
+            const token = result[0]?.rawValue || result?.text || result;
+
+            if (!token) return;
+
+            setLoading(true);
+            setScanning(false); // Kamerayı kapat
+
+            try {
+                // 1. Token Validasyonu
+                const { data: tokenData, error: tokenError } = await supabase
+                    .from('qr_tokens')
+                    .select('*')
+                    .eq('token', token)
+                    //.eq('type', 'kiosk_entry') // İleride farklı tipler olabilir ama şimdilik güvenlik için bu eklenebilir
+                    .gt('expires_at', new Date().toISOString()) // Süresi dolmamış
+                    .single();
+
+                if (tokenError || !tokenData) {
+                    throw new Error('Geçersiz veya süresi dolmuş QR Kod. Lütfen Kiosk ekranını tekrar okutun.');
+                }
+
+                // 2. İşlem Yap (Giriş veya Çıkış)
+                await processAttendance(scanMode!);
+
+            } catch (error: any) {
                 console.error(error);
+                setMessage({ type: 'error', text: error.message || 'QR okuma hatası.' });
+            } finally {
                 setLoading(false);
-            },
-            { enableHighAccuracy: true, timeout: 5000, maximumAge: 0 }
-        );
-    };
-
-    useEffect(() => {
-        updateLocation();
-        // Auto-refresh location every 30s
-        const interval = setInterval(updateLocation, 30000);
-        return () => clearInterval(interval);
-    }, []);
-
-    const handleAttendance = async (type: 'check_in' | 'check_out') => {
-        if (!distance || distance > MAX_DISTANCE_METERS) {
-            setMessage({ type: 'error', text: `Klinikte değilsiniz! (Mesafe: ${distance}m)` });
-            return;
-        }
-
-        setLoading(true);
-        setMessage(null);
-
-        try {
-            // 1. Fingerprint Check (Device Lock)
-            const fp = await fpPromise.load();
-            const result = await fp.get();
-            const deviceId = result.visitorId;
-
-            // 2. Strict Device Lock Check (Anti-Buddy Punching)
-            // Call the RPC to see if this device was used by anyone else today
-            const { data: isDeviceSafe, error: rpcError } = await supabase
-                .rpc('check_device_usage', {
-                    p_device_id: deviceId,
-                    p_user_id: selectedUserId
-                });
-
-            if (rpcError) throw rpcError;
-
-            if (!isDeviceSafe) {
-                throw new Error("GÜVENLİK UYARISI: Bu cihaz bugün başka bir personel tarafından kullanıldı. Lütfen kendi telefonunuzu kullanın.");
+                setScanMode(null);
             }
+        };
 
-            // 3. Submit to Supabase
-            // Note: RLS should allow this if user_id matches
-            const { error } = await supabase
-                .from('attendance')
-                .insert({
+        const processAttendance = async (type: 'check_in' | 'check_out') => {
+            try {
+                const { data: { user } } = await supabase.auth.getUser(); // Anon user olsa bile id lazım değil, selectedUserId var
+
+                // Lokasyon verisi opsiyonel (artık zorunlu değil ama loglamak isterseniz ekleyebilirsiniz)
+                const mockLocation = { latitude: 0, longitude: 0, accuracy: 0 };
+
+                const { error } = await supabase.from('attendance').insert({
                     user_id: selectedUserId,
                     type: type,
                     timestamp: new Date().toISOString(),
-                    device_id: deviceId,
-                    status: 'approved',
-                    qr_token: 'GPS_VERIFIED' // Legacy col placeholder
+                    location: mockLocation,
+                    device_info: {
+                        userAgent: navigator.userAgent,
+                        platform: navigator.platform,
+                        method: 'kiosk_qr' // Analitik için
+                    }
                 });
 
-            if (error) {
-                // Handle RLS error specifically
-                if (error.message.includes('row-level security')) {
-                    throw new Error("Sistem hatası: Erişim reddedildi. Yönetici ile iletişime geçin.");
+                if (error) {
+                    // RLS ve KULLANICI_SILINMIS hataları burada
+                    if (error.code === '23503' || error.message.includes('foreign key')) {
+                        throw new Error("KULLANICI_SILINMIS");
+                    }
+                    throw error;
                 }
-                throw error;
+
+                setMessage({
+                    type: 'success',
+                    text: type === 'check_in' ? `Hoş geldin ${selectedUserName}, giriş başarılı!` : `Güle güle ${selectedUserName}, çıkış yapıldı.`
+                });
+
+            } catch (error: any) {
+                if (error.message === "KULLANICI_SILINMIS") {
+                    setMessage({ type: 'check_in_error', text: 'Kullanıcı kaydı bulunamadı. Lütfen çıkış yapın.' });
+                } else {
+                    throw error;
+                }
             }
+        };
 
-            setMessage({
-                type: 'success',
-                text: `${type === 'check_in' ? 'Giriş' : 'Çıkış'} Başarılı!`
-            });
+        const startScan = (mode: 'check_in' | 'check_out') => {
+            setScanMode(mode);
+            setScanning(true);
+            setMessage(null);
+        };
 
-        } catch (error: any) {
-            console.error(error);
-            setMessage({ type: 'error', text: error.message || 'Bir hata oluştu.' });
-        } finally {
-            setLoading(false);
-        }
-    };
+        return (
+            <div className="min-h-screen bg-slate-50 flex flex-col items-center justify-center p-4">
+                <div className="w-full max-w-md bg-white rounded-2xl shadow-xl overflow-hidden">
+                    <div className="bg-slate-900 p-6 text-center relative">
+                        <button
+                            onClick={() => { clearSelectedUser(); navigate('/login'); }}
+                            className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-400 hover:text-white"
+                        >
+                            <ArrowLeft />
+                        </button>
+                        <span className="font-bold text-lg">Giriş Yap</span>
+                    </button>
 
-    return (
-        <div className="flex flex-col items-center p-6 max-w-sm mx-auto bg-gray-50 min-h-screen">
-            <h2 className="text-2xl font-bold mb-2 text-gray-800">Personel Paneli</h2>
-            <p className="text-gray-500 mb-8">{selectedUserName}</p>
-
-            <div className="w-full bg-white rounded-2xl shadow-sm p-6 mb-6 border border-gray-100">
-                <div className="flex items-center justify-between mb-4">
-                    <div className="flex items-center gap-2 text-gray-600">
-                        <MapPin size={20} className={distance && distance < MAX_DISTANCE_METERS ? "text-green-500" : "text-amber-500"} />
-                        <span className="font-medium">Konum Durumu</span>
-                    </div>
-                    <button onClick={updateLocation} className="p-2 hover:bg-gray-100 rounded-full transition-colors">
-                        <RefreshCw size={16} className={loading ? "animate-spin text-blue-500" : "text-gray-400"} />
+                    <button
+                        onClick={() => handleAttendance('check_out')}
+                        disabled={loading || !!message || (distance !== null && distance > MAX_DISTANCE_METERS)}
+                        className="flex flex-col items-center justify-center p-6 bg-red-500 active:bg-red-600 disabled:bg-gray-300 disabled:cursor-not-allowed text-white rounded-2xl shadow-lg shadow-red-200 transition-all transform active:scale-95"
+                    >
+                        <LogOut size={32} className="mb-2" />
+                        <span className="font-bold text-lg">Çıkış Yap</span>
                     </button>
                 </div>
 
-                {locError ? (
-                    <div className="p-3 bg-red-50 text-red-600 rounded-lg text-sm flex items-center gap-2">
-                        <AlertTriangle size={16} />
-                        {locError}
-                    </div>
-                ) : (
-                    <div className="space-y-2">
-                        <div className="flex justify-between text-sm">
-                            <span className="text-gray-500">Mesafe:</span>
-                            <span className={`font-mono font-bold ${distance && distance < MAX_DISTANCE_METERS ? "text-green-600" : "text-red-500"}`}>
-                                {distance !== null ? `${distance}m` : 'Hesaplanıyor...'}
-                            </span>
-                        </div>
-                        <div className="w-full bg-gray-200 rounded-full h-1.5 overflow-hidden">
-                            <div
-                                className={`h-full transition-all duration-500 ${distance && distance < MAX_DISTANCE_METERS ? "bg-green-500" : "bg-red-400"}`}
-                                style={{ width: distance ? `${Math.min(100, Math.max(0, 100 - (distance / MAX_DISTANCE_METERS) * 100))}%` : '0%' }}
-                            />
-                        </div>
-                        <p className="text-xs text-gray-400 text-right mt-1">Limit: {MAX_DISTANCE_METERS}m</p>
+                {message && (
+                    <div className={`mt-6 p-4 rounded-xl w-full text-center animate-fade-in ${message.type === 'success' ? 'bg-green-100 text-green-800' : 'bg-red-100 text-red-800'}`}>
+                        <p className="font-bold">{message.text}</p>
+                        {message.type === 'success' && (
+                            <button
+                                onClick={() => setMessage(null)}
+                                className="text-xs mt-2 underline"
+                            >
+                                Yeni İşlem
+                            </button>
+                        )}
+                        {message.type === 'check_in_error' && (
+                            <button
+                                onClick={() => {
+                                    clearSelectedUser();
+                                    window.location.href = '/login';
+                                }}
+                                className="mt-3 px-4 py-2 bg-red-600 text-white rounded-lg text-sm font-bold shadow-md hover:bg-red-700 transition"
+                            >
+                                Çıkış Yap ve Tekrar Dene
+                            </button>
+                        )}
                     </div>
                 )}
             </div>
-
-            <div className="grid grid-cols-2 gap-4 w-full">
-                <button
-                    onClick={() => handleAttendance('check_in')}
-                    disabled={loading || !!message || (distance !== null && distance > MAX_DISTANCE_METERS)}
-                    className="flex flex-col items-center justify-center p-6 bg-green-500 active:bg-green-600 disabled:bg-gray-300 disabled:cursor-not-allowed text-white rounded-2xl shadow-lg shadow-green-200 transition-all transform active:scale-95"
-                >
-                    <LogIn size={32} className="mb-2" />
-                    <span className="font-bold text-lg">Giriş Yap</span>
-                </button>
-
-                <button
-                    onClick={() => handleAttendance('check_out')}
-                    disabled={loading || !!message || (distance !== null && distance > MAX_DISTANCE_METERS)}
-                    className="flex flex-col items-center justify-center p-6 bg-red-500 active:bg-red-600 disabled:bg-gray-300 disabled:cursor-not-allowed text-white rounded-2xl shadow-lg shadow-red-200 transition-all transform active:scale-95"
-                >
-                    <LogOut size={32} className="mb-2" />
-                    <span className="font-bold text-lg">Çıkış Yap</span>
-                </button>
-            </div>
-
-            {message && (
-                <div className={`mt-6 p-4 rounded-xl w-full text-center animate-fade-in ${message.type === 'success' ? 'bg-green-100 text-green-800' : 'bg-red-100 text-red-800'}`}>
-                    <p className="font-bold">{message.text}</p>
-                    {message.type === 'success' && (
-                        <button
-                            onClick={() => setMessage(null)}
-                            className="text-xs mt-2 underline"
-                        >
-                            Yeni İşlem
-                        </button>
-                    )}
-                </div>
-            )}
-        </div>
-    );
-}
+        );
+    }

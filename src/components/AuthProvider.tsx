@@ -2,6 +2,7 @@ import React, { createContext, useContext, useState, useEffect } from 'react';
 
 type AuthContextType = {
     isAdmin: boolean;
+    isKiosk: boolean;
     isLoading: boolean;
     login: (username: string, password: string) => boolean;
     logout: () => void;
@@ -14,12 +15,21 @@ type AuthContextType = {
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
 
-// Sabit admin bilgileri - Klinik için yeterli güvenlik
-const ADMIN_USERNAME = 'admin';
-const ADMIN_PASSWORD = 'dtberk123';
+// Sabit admin ve kiosk kredansiyalleri
+const CREDENTIALS = {
+    admin: {
+        username: 'admin',
+        password: 'admindtberk123'
+    },
+    kiosk: {
+        username: 'kiosk',
+        password: 'Kioskadmindtberk123'
+    }
+};
 
 export function AuthProvider({ children }: { children: React.ReactNode }) {
     const [isAdmin, setIsAdmin] = useState(false);
+    const [isKiosk, setIsKiosk] = useState(false);
     const [isLoading, setIsLoading] = useState(true);
     const [selectedUserId, setSelectedUserId] = useState<string | null>(null);
     const [selectedUserName, setSelectedUserName] = useState<string | null>(null);
@@ -27,7 +37,10 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     useEffect(() => {
         // Sayfa yüklendiğinde localStorage kontrol et
         const adminLoggedIn = localStorage.getItem('adminLoggedIn') === 'true';
+        const kioskLoggedIn = localStorage.getItem('kioskLoggedIn') === 'true';
+
         setIsAdmin(adminLoggedIn);
+        setIsKiosk(kioskLoggedIn);
 
         // Çalışan seçimi de localStorage'dan
         const storedUserId = localStorage.getItem('selectedUserId');
@@ -41,19 +54,32 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     }, []);
 
     const login = (username: string, password: string): boolean => {
-        if (username === ADMIN_USERNAME && password === ADMIN_PASSWORD) {
+        if (username === CREDENTIALS.admin.username && password === CREDENTIALS.admin.password) {
             localStorage.setItem('adminLoggedIn', 'true');
+            localStorage.removeItem('kioskLoggedIn');
             setIsAdmin(true);
+            setIsKiosk(false);
             return true;
         }
+
+        if (username === CREDENTIALS.kiosk.username && password === CREDENTIALS.kiosk.password) {
+            localStorage.setItem('kioskLoggedIn', 'true');
+            localStorage.removeItem('adminLoggedIn');
+            setIsKiosk(true);
+            setIsAdmin(false);
+            return true;
+        }
+
         return false;
     };
 
     const logout = () => {
         localStorage.removeItem('adminLoggedIn');
+        localStorage.removeItem('kioskLoggedIn');
         localStorage.removeItem('selectedUserId');
         localStorage.removeItem('selectedUserName');
         setIsAdmin(false);
+        setIsKiosk(false);
         setSelectedUserId(null);
         setSelectedUserName(null);
     };
@@ -77,6 +103,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     return (
         <AuthContext.Provider value={{
             isAdmin,
+            isKiosk,
             isLoading,
             login,
             logout,
