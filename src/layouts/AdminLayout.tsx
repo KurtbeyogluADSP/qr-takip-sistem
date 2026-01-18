@@ -1,7 +1,7 @@
 
 import { Outlet, Link, useNavigate } from 'react-router-dom';
 import { useAuth } from '../components/AuthProvider';
-import { LogOut, LayoutDashboard, QrCode, UserPlus, BarChart2 } from 'lucide-react';
+import { LogOut, LayoutDashboard, QrCode, UserPlus, BarChart2, Monitor } from 'lucide-react';
 
 export default function AdminLayout() {
     const { logout, isAdmin } = useAuth();
@@ -43,6 +43,10 @@ export default function AdminLayout() {
                         <BarChart2 size={20} />
                         <span>Raporlar</span>
                     </Link>
+                    <Link to="/kiosk" target="_blank" className="flex items-center gap-3 px-4 py-3 text-gray-700 hover:bg-blue-50 hover:text-blue-700 rounded-lg transition-colors text-left">
+                        <Monitor size={20} />
+                        <span>Kiosk Ekranı</span>
+                    </Link>
                 </nav>
 
                 <div className="p-4 border-t border-gray-100">
@@ -75,6 +79,10 @@ export default function AdminLayout() {
                 <Link to="/admin/analytics" className="flex flex-col items-center p-2 text-gray-600 hover:text-blue-600">
                     <BarChart2 size={20} />
                     <span className="text-xs mt-1">Rapor</span>
+                </Link>
+                <Link to="/kiosk" className="flex flex-col items-center p-2 text-gray-600 hover:text-blue-600">
+                    <Monitor size={20} />
+                    <span className="text-xs mt-1">Kiosk</span>
                 </Link>
                 <button onClick={handleSignOut} className="flex flex-col items-center p-2 text-red-500 hover:text-red-700">
                     <LogOut size={20} />

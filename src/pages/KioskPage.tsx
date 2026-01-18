@@ -9,7 +9,8 @@ export default function KioskPage() {
     const { isKiosk, isAdmin, logout } = useAuth();
     const navigate = useNavigate();
     const [qrValue, setQrValue] = useState<string>('');
-    const [timeLeft, setTimeLeft] = useState(15);
+    const [timeLeft, setTimeLeft] = useState(60);
+    const [displayCode, setDisplayCode] = useState<string>('');
 
     // Auth check
     useEffect(() => {
@@ -24,10 +25,10 @@ export default function KioskPage() {
 
         const interval = setInterval(() => {
             generateKioskQR();
-        }, 15000); // 15 seconds
+        }, 60000); // 60 seconds
 
         const timer = setInterval(() => {
-            setTimeLeft((prev) => (prev > 0 ? prev - 1 : 15));
+            setTimeLeft((prev) => (prev > 0 ? prev - 1 : 60));
         }, 1000);
 
         return () => {
@@ -37,22 +38,25 @@ export default function KioskPage() {
     }, []);
 
     const generateKioskQR = async () => {
-        const token = `kiosk-${Math.random().toString(36).substring(2, 10)}-${Date.now()}`;
+        // Generate random 2-digit code for manual entry (10-99)
+        const code = Math.floor(Math.random() * 90 + 10).toString();
+        // Embed code in token: kiosk-CODE-random-timestamp
+        const token = `kiosk-${code}-${Math.random().toString(36).substring(2, 10)}-${Date.now()}`;
 
         // 1. Save new token
         const { error } = await supabase.from('qr_tokens').insert({
             token: token,
             type: 'kiosk_entry',
-            expires_at: new Date(Date.now() + 60 * 1000).toISOString() // Valid for 60s (saat farkı ve yavaş okuma için buffer)
+            expires_at: new Date(Date.now() + 60 * 1000).toISOString() // Valid for 60s
         });
 
         if (error) console.error('Token create error', error);
 
         setQrValue(token);
-        setTimeLeft(15);
+        setDisplayCode(code);
+        setTimeLeft(60);
 
         // 2. Clean up old tokens (Self-maintaining database)
-        // Arka planda sessizce 1 saat öncekileri siler
         const oneHourAgo = new Date(Date.now() - 60 * 60 * 1000).toISOString();
         await supabase.from('qr_tokens').delete().lt('created_at', oneHourAgo);
     };
@@ -80,7 +84,7 @@ export default function KioskPage() {
                 <LogOut size={20} />
             </button>
 
-            <div className="bg-white p-8 rounded-3xl shadow-2xl flex flex-col items-center animate-fade-in relative z-10">
+            <div className="bg-white p-8 rounded-3xl shadow-2xl flex flex-col items-center animate-fade-in relative z-10 w-full max-w-md mx-4">
                 <div className="mb-6 text-center">
                     <h2 className="text-3xl font-bold text-slate-800 mb-2">Giriş / Çıkış</h2>
                     <p className="text-slate-500">Lütfen telefonunuzdan okutunuz</p>
@@ -93,6 +97,15 @@ export default function KioskPage() {
                     <div className="absolute -bottom-3 -right-3 w-10 h-10 bg-blue-600 rounded-full flex items-center justify-center text-white font-bold text-sm shadow-lg border-2 border-white">
                         {timeLeft}
                     </div>
+                </div>
+
+                {/* Manual Entry Code Display */}
+                <div className="w-full bg-slate-50 rounded-xl p-4 mb-4 text-center border border-slate-200">
+                    <p className="text-slate-500 text-sm mb-1">QR Okutamıyor musunuz?</p>
+                    <div className="text-4xl font-black text-slate-800 tracking-widest font-mono">
+                        {displayCode}
+                    </div>
+                    <p className="text-xs text-slate-400 mt-1">Ekranda bu sayıyı seçiniz</p>
                 </div>
 
                 <div className="flex items-center gap-2 text-sm text-slate-400">

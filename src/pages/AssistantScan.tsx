@@ -14,6 +14,11 @@ export default function AssistantScan() {
     const [loading, setLoading] = useState(false);
     const [message, setMessage] = useState<{ type: 'success' | 'error' | 'check_in_error', text: string } | null>(null);
 
+    // Manual Entry States
+    const [manualEntryMode, setManualEntryMode] = useState(false);
+    const [manualOptions, setManualOptions] = useState<string[]>([]);
+    const [activeTokenForManual, setActiveTokenForManual] = useState<string | null>(null);
+
     const handleKioskScan = async (result: any) => {
         if (!result) return;
 
@@ -94,8 +99,91 @@ export default function AssistantScan() {
 
     const startScan = (mode: 'check_in' | 'check_out') => {
         setScanMode(mode);
-        setScanning(true);
+        // Reset states
         setMessage(null);
+        setManualEntryMode(false);
+
+        // Start camera
+        setScanning(true);
+    };
+
+    const activateManualEntry = async () => {
+        setScanning(false);
+        setLoading(true);
+        setMessage(null);
+
+        try {
+            // Fetch the latest active token
+            const { data, error } = await supabase
+                .from('qr_tokens')
+                .select('token')
+                .eq('type', 'kiosk_entry')
+                .gt('expires_at', new Date().toISOString())
+                .order('created_at', { ascending: false })
+                .limit(1)
+                .single();
+
+            if (error || !data) {
+                throw new Error('Aktif bir Kiosk QR kodu bulunamadı. Lütfen QR kodun yenilenmesini bekleyin.');
+            }
+
+            // Extract embedded code (Format: kiosk-CODE-random-timestamp)
+            const parts = data.token.split('-');
+            const correctCode = parts[1]; // Index 1 is the 2-digit code
+
+            if (!correctCode || correctCode.length !== 2) {
+                // Fallback for old tokens without code (rare but possible during migration)
+                throw new Error('Eski versiyon QR kod algılandı. Lütfen Kiosk sayfasını yenileyin.');
+            }
+
+            setActiveTokenForManual(data.token);
+            setManualOptions(generateRandomOptions(correctCode));
+            setManualEntryMode(true);
+
+        } catch (error: any) {
+            setMessage({ type: 'error', text: error.message || 'Manuel giriş verisi alınamadı.' });
+        } finally {
+            setLoading(false);
+        }
+    };
+
+    const generateRandomOptions = (correct: string) => {
+        const options = new Set<string>();
+        options.add(correct);
+
+        while (options.size < 6) {
+            const definitions = Math.floor(Math.random() * 90 + 10).toString();
+            options.add(definitions);
+        }
+
+        // Shuffle
+        return Array.from(options).sort(() => Math.random() - 0.5);
+    };
+
+    const handleManualSelection = async (selectedCode: string) => {
+        if (!activeTokenForManual) return;
+
+        setLoading(true);
+
+        // Verify locally first
+        const correctCode = activeTokenForManual.split('-')[1];
+
+        if (selectedCode === correctCode) {
+            // Success - Proceed to attendance
+            // We treat "Manual Entry" as a valid scan of the token
+            // Since we already fetched the token from DB, it IS valid.
+            try {
+                await processAttendance(scanMode!);
+                setManualEntryMode(false);
+                setActiveTokenForManual(null);
+            } catch (error: any) {
+                setMessage({ type: 'error', text: error.message });
+            }
+        } else {
+            // Wrong code
+            setMessage({ type: 'error', text: 'Hatalı kod seçimi! Lütfen Kiosk ekranındaki sayıyı kontrol edin.' });
+            setLoading(false);
+        }
     };
 
     return (
@@ -133,23 +221,63 @@ export default function AssistantScan() {
 
                     {scanning ? (
                         <div className="space-y-4">
-                            <div className="bg-black rounded-2xl overflow-hidden aspect-square relative">
-                                <Scanner
-                                    onScan={handleKioskScan}
-                                    onError={(e) => console.log(e)}
-                                    sound={false}
-                                />
-                                <div className="absolute inset-0 border-2 border-blue-500/50 pointer-events-none"></div>
-                                <div className="absolute top-4 left-0 w-full text-center text-white bg-black/50 py-1 text-sm">
-                                    Kiosk Ekranındaki QR Kodu Okutun
+                            {!manualEntryMode ? (
+                                <>
+                                    <div className="bg-black rounded-2xl overflow-hidden aspect-square relative">
+                                        <Scanner
+                                            onScan={handleKioskScan}
+                                            onError={(e) => console.log(e)}
+                                            sound={false}
+                                        />
+                                        <div className="absolute inset-0 border-2 border-blue-500/50 pointer-events-none"></div>
+                                        <div className="absolute top-4 left-0 w-full text-center text-white bg-black/50 py-1 text-sm">
+                                            Kiosk Ekranındaki QR Kodu Okutun
+                                        </div>
+                                    </div>
+
+                                    <div className="flex gap-2">
+                                        <button
+                                            onClick={() => setScanning(false)}
+                                            className="flex-1 py-3 bg-slate-100 text-slate-600 rounded-xl font-medium"
+                                        >
+                                            İptal
+                                        </button>
+                                        <button
+                                            onClick={activateManualEntry}
+                                            className="flex-1 py-3 bg-blue-50 text-blue-600 rounded-xl font-medium"
+                                        >
+                                            Kameram Çalışmıyor
+                                        </button>
+                                    </div>
+                                </>
+                            ) : (
+                                <div className="space-y-4 animate-fade-in">
+                                    <div className="text-center mb-2">
+                                        <h3 className="font-bold text-lg text-slate-800">Doğrulama Kodu</h3>
+                                        <p className="text-sm text-slate-500">Kiosk ekranında QR altında yazan sayıyı seçiniz</p>
+                                    </div>
+
+                                    <div className="grid grid-cols-3 gap-3">
+                                        {manualOptions.map((opt) => (
+                                            <button
+                                                key={opt}
+                                                onClick={() => handleManualSelection(opt)}
+                                                disabled={loading}
+                                                className="h-16 text-xl font-bold rounded-xl bg-white border-2 border-slate-200 hover:border-blue-500 hover:bg-blue-50 text-slate-700 hover:text-blue-600 transition-all active:scale-95"
+                                            >
+                                                {opt}
+                                            </button>
+                                        ))}
+                                    </div>
+
+                                    <button
+                                        onClick={() => setManualEntryMode(false)}
+                                        className="w-full py-3 bg-slate-100 text-slate-600 rounded-xl font-medium"
+                                    >
+                                        Kameraya Dön
+                                    </button>
                                 </div>
-                            </div>
-                            <button
-                                onClick={() => setScanning(false)}
-                                className="w-full py-3 bg-slate-100 text-slate-600 rounded-xl font-medium"
-                            >
-                                İptal Et
-                            </button>
+                            )}
                         </div>
                     ) : (
                         <div className="grid gap-4">
