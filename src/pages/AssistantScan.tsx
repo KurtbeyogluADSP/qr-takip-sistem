@@ -1,8 +1,8 @@
-import { useState, useEffect } from 'react';
+import { useState } from 'react';
 import { useAuth } from '../components/AuthProvider';
 import { supabase } from '../lib/supabase';
 import { useNavigate } from 'react-router-dom';
-import { MapPin, LogIn, LogOut, AlertTriangle, RefreshCw, ArrowLeft, CheckCircle, XCircle } from 'lucide-react';
+import { LogIn, LogOut, ArrowLeft, CheckCircle, XCircle } from 'lucide-react';
 import { Scanner } from '@yudiel/react-qr-scanner';
 
 export default function AssistantScan() {
@@ -53,7 +53,7 @@ export default function AssistantScan() {
 
     const processAttendance = async (type: 'check_in' | 'check_out') => {
         try {
-            const { data: { user } } = await supabase.auth.getUser();
+            await supabase.auth.getUser();
 
             // Lokasyon verisi opsiyonel 
             const mockLocation = { latitude: 0, longitude: 0, accuracy: 0 };
@@ -137,7 +137,7 @@ export default function AssistantScan() {
                                 <Scanner
                                     onScan={handleKioskScan}
                                     onError={(e) => console.log(e)}
-                                    components={{ audio: false, tracker: false }}
+                                    sound={false}
                                 />
                                 <div className="absolute inset-0 border-2 border-blue-500/50 pointer-events-none"></div>
                                 <div className="absolute top-4 left-0 w-full text-center text-white bg-black/50 py-1 text-sm">
