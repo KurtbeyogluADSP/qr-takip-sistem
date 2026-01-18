@@ -4,6 +4,7 @@ import { BarChart3, Calendar, ChevronLeft, ChevronRight, Download, Users, Settin
 import SettingsModal from '../components/SettingsModal';
 import UserDetailModal from '../components/UserDetailModal';
 
+// Merged type for logic
 interface AnalyticStat {
     user_id: string;
     user_name: string;
@@ -36,15 +37,37 @@ export default function AdminAnalytics() {
     const fetchAnalytics = async () => {
         setLoading(true);
         try {
-            // Format date as YYYY-MM-DD for Postgres
-            const dateStr = targetDate.toISOString().split('T')[0];
-            const { data, error } = await supabase.rpc('get_monthly_analytics', { target_date: dateStr });
+            // 1. Fetch all non-admin users to ensure everyone is listed
+            const { data: users, error: usersError } = await supabase
+                .from('users')
+                .select('id, name')
+                .neq('role', 'admin')
+                .order('name');
 
-            if (error) throw error;
-            setStats(data || []);
+            if (usersError) throw usersError;
+
+            // 2. Fetch analytics data for the target month
+            const dateStr = targetDate.toISOString().split('T')[0];
+            const { data: analytics, error: analyticsError } = await supabase.rpc('get_monthly_analytics', { target_date: dateStr });
+
+            if (analyticsError) throw analyticsError;
+
+            // 3. Merge data (Left Join logic in frontend)
+            const mergedStats: AnalyticStat[] = (users || []).map(user => {
+                const stat = (analytics || []).find((s: AnalyticStat) => s.user_id === user.id);
+                return {
+                    user_id: user.id,
+                    user_name: user.name,
+                    total_work_days: stat?.total_work_days || 0,
+                    avg_entry_time: stat?.avg_entry_time || '-',
+                    avg_exit_time: stat?.avg_exit_time || '-',
+                    total_hours: stat?.total_hours || 0
+                };
+            });
+
+            setStats(mergedStats);
         } catch (err: any) {
             console.error('Error fetching analytics:', err);
-            // Ignore error if it's just a permission issue during dev
         } finally {
             setLoading(false);
         }
