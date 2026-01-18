@@ -6,7 +6,7 @@ import { useNavigate } from 'react-router-dom';
 import { LogOut } from 'lucide-react';
 
 export default function KioskPage() {
-    const { isKiosk, isAdmin, logout } = useAuth();
+    const { isKiosk, isAdmin, logout, isLoading } = useAuth();
     const navigate = useNavigate();
     const [qrValue, setQrValue] = useState<string>('');
     const [timeLeft, setTimeLeft] = useState(60);
@@ -14,10 +14,18 @@ export default function KioskPage() {
 
     // Auth check
     useEffect(() => {
-        if (!isKiosk && !isAdmin) {
+        if (!isLoading && !isKiosk && !isAdmin) {
             navigate('/login');
         }
-    }, [isKiosk, isAdmin, navigate]);
+    }, [isKiosk, isAdmin, navigate, isLoading]);
+
+    if (isLoading) {
+        return (
+            <div className="min-h-screen bg-slate-900 flex items-center justify-center">
+                <div className="text-white">Yükleniyor...</div>
+            </div>
+        );
+    }
 
     // Generate QR loop
     useEffect(() => {
