@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react';
 import { supabase } from '../lib/supabase';
-import { X, Calendar, Clock, AlertCircle } from 'lucide-react';
+import { X, Calendar, AlertCircle } from 'lucide-react';
 
 interface DailyLog {
     work_date: string;

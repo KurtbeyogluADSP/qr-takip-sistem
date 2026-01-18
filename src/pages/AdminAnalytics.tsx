@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react';
 import { supabase } from '../lib/supabase';
-import { BarChart3, Calendar, ChevronLeft, ChevronRight, Download, Users, Settings, Eye, Calculator } from 'lucide-react';
+import { BarChart3, Calendar, ChevronLeft, ChevronRight, Download, Users, Settings, Eye } from 'lucide-react';
 import SettingsModal from '../components/SettingsModal';
 import UserDetailModal from '../components/UserDetailModal';
 
@@ -74,7 +74,7 @@ export default function AdminAnalytics() {
     };
 
     const fetchSettings = async () => {
-        const { data, error } = await supabase
+        const { data } = await supabase
             .from('system_settings')
             .select('value')
             .eq('key', 'hourly_wage')
