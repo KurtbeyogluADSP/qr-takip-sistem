@@ -31,12 +31,12 @@ export default function AssistantScan() {
         setScanning(false); // Kamerayı kapat
 
         try {
-            // 1. Token Validasyonu
+            // 1. Token Validasyonu - hem kiosk_entry hem kiosk_active kabul et
             const { data: tokenData, error: tokenError } = await supabase
                 .from('qr_tokens')
                 .select('*')
                 .eq('token', token)
-                //.eq('type', 'kiosk_entry') // İleride farklı tipler olabilir ama şimdilik güvenlik için bu eklenebilir
+                .eq('type', 'kiosk_entry')
                 .gt('expires_at', new Date(Date.now() - 30 * 1000).toISOString()) // 30s grace period for drift
                 .single();
 
@@ -47,6 +47,9 @@ export default function AssistantScan() {
             // 2. İşlem Yap (Giriş veya Çıkış)
             await processAttendance(scanMode!);
 
+            // 3. Yeni token oluştur (Kiosk polling ile algılayacak)
+            await regenerateKioskToken();
+
         } catch (error: any) {
             console.error(error);
             setMessage({ type: 'error', text: error.message || 'QR okuma hatası.' });
@@ -56,6 +59,18 @@ export default function AssistantScan() {
             setScanMode(null);
         }
     };
+
+    const regenerateKioskToken = async () => {
+        const code = Math.floor(Math.random() * 90 + 10).toString();
+        const token = `kiosk-${code}-${Math.random().toString(36).substring(2, 10)}-${Date.now()}`;
+
+        await supabase.from('qr_tokens').insert({
+            token: token,
+            type: 'kiosk_entry',
+            expires_at: new Date(Date.now() + 24 * 60 * 60 * 1000).toISOString()
+        });
+    };
+
 
     const processAttendance = async (type: 'check_in' | 'check_out') => {
         try {
