@@ -37,7 +37,7 @@ export default function AssistantScan() {
                 .select('*')
                 .eq('token', token)
                 //.eq('type', 'kiosk_entry') // İleride farklı tipler olabilir ama şimdilik güvenlik için bu eklenebilir
-                .gt('expires_at', new Date().toISOString()) // Süresi dolmamış
+                .gt('expires_at', new Date(Date.now() - 30 * 1000).toISOString()) // 30s grace period for drift
                 .single();
 
             if (tokenError || !tokenData) {
@@ -50,6 +50,7 @@ export default function AssistantScan() {
         } catch (error: any) {
             console.error(error);
             setMessage({ type: 'error', text: error.message || 'QR okuma hatası.' });
+            window.scrollTo({ top: 0, behavior: 'smooth' });
         } finally {
             setLoading(false);
             setScanMode(null);
@@ -113,31 +114,32 @@ export default function AssistantScan() {
         setMessage(null);
 
         try {
-            // Fetch the latest active token
+            // Fetch ALL active tokens (to handle transition periods where 2 might be valid)
             const { data, error } = await supabase
                 .from('qr_tokens')
                 .select('token')
                 .eq('type', 'kiosk_entry')
-                .gt('expires_at', new Date().toISOString())
+                .gt('expires_at', new Date(Date.now() - 30 * 1000).toISOString()) // Grace period
                 .order('created_at', { ascending: false })
-                .limit(1)
-                .single();
+                .limit(3); // Fetch last 3 valid tokens
 
-            if (error || !data) {
+            if (error || !data || data.length === 0) {
                 throw new Error('Aktif bir Kiosk QR kodu bulunamadı. Lütfen QR kodun yenilenmesini bekleyin.');
             }
 
-            // Extract embedded code (Format: kiosk-CODE-random-timestamp)
-            const parts = data.token.split('-');
-            const correctCode = parts[1]; // Index 1 is the 2-digit code
+            // Extract all valid codes
+            const validCodes = data.map(d => {
+                const parts = d.token.split('-');
+                return parts[1]; // 2-digit code
+            }).filter(code => code && code.length === 2);
 
-            if (!correctCode || correctCode.length !== 2) {
-                // Fallback for old tokens without code (rare but possible during migration)
-                throw new Error('Eski versiyon QR kod algılandı. Lütfen Kiosk sayfasını yenileyin.');
+            if (validCodes.length === 0) {
+                throw new Error('Geçersiz QR kod formatı. Lütfen Kiosk sayfasını yenileyin.');
             }
 
-            setActiveTokenForManual(data.token);
-            setManualOptions(generateRandomOptions(correctCode));
+            // Use the *latest* code for display logic if needed, but allow ANY valid code
+            setActiveTokenForManual(JSON.stringify(validCodes)); // Store ALL valid codes
+            setManualOptions(generateRandomOptions(validCodes));
             setManualEntryMode(true);
 
         } catch (error: any) {
@@ -147,9 +149,9 @@ export default function AssistantScan() {
         }
     };
 
-    const generateRandomOptions = (correct: string) => {
+    const generateRandomOptions = (correctCodes: string[]) => {
         const options = new Set<string>();
-        options.add(correct);
+        correctCodes.forEach(c => options.add(c));
 
         while (options.size < 6) {
             const definitions = Math.floor(Math.random() * 90 + 10).toString();
@@ -165,23 +167,22 @@ export default function AssistantScan() {
 
         setLoading(true);
 
-        // Verify locally first
-        const correctCode = activeTokenForManual.split('-')[1];
+        const validCodes: string[] = JSON.parse(activeTokenForManual);
 
-        if (selectedCode === correctCode) {
+        if (validCodes.includes(selectedCode)) {
             // Success - Proceed to attendance
-            // We treat "Manual Entry" as a valid scan of the token
-            // Since we already fetched the token from DB, it IS valid.
             try {
                 await processAttendance(scanMode!);
                 setManualEntryMode(false);
                 setActiveTokenForManual(null);
             } catch (error: any) {
                 setMessage({ type: 'error', text: error.message });
+                window.scrollTo({ top: 0, behavior: 'smooth' });
             }
         } else {
             // Wrong code
             setMessage({ type: 'error', text: 'Hatalı kod seçimi! Lütfen Kiosk ekranındaki sayıyı kontrol edin.' });
+            window.scrollTo({ top: 0, behavior: 'smooth' });
             setLoading(false);
         }
     };

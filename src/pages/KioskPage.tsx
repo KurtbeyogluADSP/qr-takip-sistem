@@ -55,7 +55,7 @@ export default function KioskPage() {
         const { error } = await supabase.from('qr_tokens').insert({
             token: token,
             type: 'kiosk_entry',
-            expires_at: new Date(Date.now() + 60 * 1000).toISOString() // Valid for 60s
+            expires_at: new Date(Date.now() + 3 * 60 * 1000).toISOString() // Valid for 3 mins (prevent drift issues)
         });
 
         if (error) console.error('Token create error', error);
