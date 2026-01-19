@@ -59,6 +59,15 @@ export default function KioskPage() {
     useEffect(() => {
         // eslint-disable-next-line react-hooks/set-state-in-effect
         generateNewToken();
+
+        // Deadlock Önleyici: Kiosk hiç kullanılmasa bile her 30 dakikada bir QR'ı yenile
+        // Bu sayede 24 saatlik süre aşımı (expiry) asla gerçekleşmez ve ekran hep taze kalır.
+        const autoRefresh = setInterval(() => {
+            console.log('Auto-refreshing Kiosk token...');
+            generateNewToken();
+        }, 30 * 60 * 1000); // 30 dakika
+
+        return () => clearInterval(autoRefresh);
     }, [generateNewToken]);
 
     // Polling - her 3 saniyede son attendance kaydını kontrol et
