@@ -22,28 +22,28 @@ export default function UserDetailModal({ isOpen, onClose, userId, userName, tar
     const [loading, setLoading] = useState(false);
 
     useEffect(() => {
+        const fetchDetails = async () => {
+            setLoading(true);
+            try {
+                const dateStr = targetDate.toISOString().split('T')[0];
+                const { data, error } = await supabase.rpc('get_user_daily_details', {
+                    target_user_id: userId,
+                    target_date: dateStr
+                });
+
+                if (error) throw error;
+                setLogs(data || []);
+            } catch (err) {
+                console.error(err);
+            } finally {
+                setLoading(false);
+            }
+        };
+
         if (isOpen && userId) {
             fetchDetails();
         }
     }, [isOpen, userId, targetDate]);
-
-    const fetchDetails = async () => {
-        setLoading(true);
-        try {
-            const dateStr = targetDate.toISOString().split('T')[0];
-            const { data, error } = await supabase.rpc('get_user_daily_details', {
-                target_user_id: userId,
-                target_date: dateStr
-            });
-
-            if (error) throw error;
-            setLogs(data || []);
-        } catch (err) {
-            console.error(err);
-        } finally {
-            setLoading(false);
-        }
-    };
 
     if (!isOpen) return null;
 

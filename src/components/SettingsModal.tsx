@@ -32,9 +32,9 @@ export default function SettingsModal({ isOpen, onClose, currentWage, onUpdate }
 
             onUpdate(); // Refresh parent
             onClose();
-        } catch (err: any) {
+        } catch (err: unknown) {
             console.error('Error saving settings:', err);
-            setError(err.message);
+            setError((err as Error).message);
         } finally {
             setLoading(false);
         }

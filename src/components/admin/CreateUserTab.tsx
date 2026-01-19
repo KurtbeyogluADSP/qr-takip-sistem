@@ -29,8 +29,9 @@ export default function CreateUserTab({ onUserCreated }: { onUserCreated?: () =>
             setMessage({ type: 'success', text: 'Kullanıcı başarıyla oluşturuldu!' });
             setNewUser({ name: '', role: 'assistant' });
             if (onUserCreated) onUserCreated();
-        } catch (err: any) {
-            setMessage({ type: 'error', text: err.message });
+            if (onUserCreated) onUserCreated();
+        } catch (err: unknown) {
+            setMessage({ type: 'error', text: (err as Error).message });
         } finally {
             setLoading(false);
         }
@@ -62,7 +63,7 @@ export default function CreateUserTab({ onUserCreated }: { onUserCreated?: () =>
                         <select
                             className="w-full p-4 rounded-xl border border-slate-200 focus:ring-2 focus:ring-blue-500 outline-none bg-slate-50 focus:bg-white transition-all"
                             value={newUser.role}
-                            onChange={e => setNewUser({ ...newUser, role: e.target.value as any })}
+                            onChange={e => setNewUser({ ...newUser, role: e.target.value as 'assistant' | 'physician' | 'admin' | 'staff' })}
                         >
                             <option value="assistant">Asistan</option>
                             <option value="physician">Hekim</option>

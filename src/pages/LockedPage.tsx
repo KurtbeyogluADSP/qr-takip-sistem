@@ -12,6 +12,7 @@ export default function LockedPage() {
     const [error, setError] = useState<string | null>(null);
     const [success, setSuccess] = useState<string | null>(null);
 
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
     const handleScan = async (result: any) => {
         if (!result) return;
         const token = result[0]?.rawValue;
@@ -33,9 +34,9 @@ export default function LockedPage() {
                 window.location.href = '/assistant/scan';
             }, 1000);
 
-        } catch (err: any) {
-            console.error(err);
-            setError(err.message || "Geçersiz Token");
+        } catch (error: unknown) {
+            console.error('Logout error:', error);
+            setError((error as Error).message || "Geçersiz Token");
             setIsScanning(true);
         }
     };

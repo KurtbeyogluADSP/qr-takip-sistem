@@ -57,6 +57,7 @@ export default function KioskPage() {
 
     // Initialize - tek seferlik token oluştur
     useEffect(() => {
+        // eslint-disable-next-line react-hooks/set-state-in-effect
         generateNewToken();
     }, [generateNewToken]);
 

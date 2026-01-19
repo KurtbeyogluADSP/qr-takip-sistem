@@ -20,7 +20,7 @@ export const getSystemSettings = async (): Promise<SystemSettings> => {
     }
 
     // Convert array of {key, value} to object
-    const settings: any = {};
+    const settings: Partial<SystemSettings> = {};
     data?.forEach((item: { key: string; value: string }) => {
         settings[item.key] = item.value;
     });

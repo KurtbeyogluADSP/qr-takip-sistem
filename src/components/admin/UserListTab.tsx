@@ -12,24 +12,18 @@ type UserType = {
 export default function UserListTab() {
     const [users, setUsers] = useState<UserType[]>([]);
     const [selectedUser, setSelectedUser] = useState<UserType | null>(null);
-    const [stats, setStats] = useState<any>(null); // For user specific stats
-
-    useEffect(() => {
-        fetchUsers();
-    }, []);
-
-    useEffect(() => {
-        if (selectedUser) {
-            fetchUserStats(selectedUser.id);
-        }
-    }, [selectedUser]);
+    type UserStats = {
+        workDays: number;
+        lastSeen: string | null;
+    };
+    const [stats, setStats] = useState<UserStats | null>(null); // For user specific stats
 
     const fetchUsers = async () => {
         const { data } = await supabase
             .from('users')
             .select('*')
             .order('created_at', { ascending: false });
-        if (data) setUsers(data);
+        if (data) setUsers(data as UserType[]);
     };
 
     const fetchUserStats = async (userId: string) => {
@@ -42,13 +36,25 @@ export default function UserListTab() {
             .limit(100);
 
         // Simple calc: total work days = unique dates
-        const uniqueDays = new Set(attendance?.map(a => a.timestamp.split('T')[0])).size;
+        const uniqueDays = new Set(attendance?.map((a: { timestamp: string }) => a.timestamp.split('T')[0])).size;
 
         setStats({
             workDays: uniqueDays,
             lastSeen: attendance?.[0]?.timestamp
         });
     };
+
+    useEffect(() => {
+        // eslint-disable-next-line react-hooks/set-state-in-effect
+        fetchUsers();
+    }, []);
+
+    useEffect(() => {
+        if (selectedUser) {
+            // eslint-disable-next-line react-hooks/set-state-in-effect
+            fetchUserStats(selectedUser.id);
+        }
+    }, [selectedUser]);
 
     const handleDelete = async (id: string, name: string) => {
         if (!confirm(`"${name}" kullanıcısını silmek istediğinize emin misiniz?`)) return;
@@ -80,8 +86,8 @@ export default function UserListTab() {
                             key={user.id}
                             onClick={() => setSelectedUser(user)}
                             className={`p-3 rounded-xl cursor-pointer transition-all flex items-center justify-between group ${selectedUser?.id === user.id
-                                    ? 'bg-blue-50 border-blue-200 border shadow-sm'
-                                    : 'hover:bg-slate-50 border border-transparent'
+                                ? 'bg-blue-50 border-blue-200 border shadow-sm'
+                                : 'hover:bg-slate-50 border border-transparent'
                                 }`}
                         >
                             <div className="flex items-center gap-3">

@@ -21,9 +21,15 @@ export default function AdminDashboard() {
             if (error) throw error;
 
             setResult(`Day closed successfully! ${data.auto_checkout_count} users were auto-checked out.`);
-        } catch (err: any) {
-            console.error(err);
-            alert("Error closing day: " + err.message);
+        } catch (error: unknown) {
+            console.error('Error closing day:', error);
+            let errorMessage = "An unknown error occurred.";
+            if (error instanceof Error) {
+                errorMessage = error.message;
+            } else if (typeof error === 'string') {
+                errorMessage = error;
+            }
+            alert("Error closing day: " + errorMessage);
         } finally {
             setLoading(false);
         }

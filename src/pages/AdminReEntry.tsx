@@ -32,8 +32,8 @@ export default function AdminReEntry() {
 
             if (error) throw error;
             setUsers(data || []);
-        } catch (err: any) {
-            console.error('Error fetching users:', err);
+        } catch (error: unknown) {
+            console.error('Logout error:', error);
         }
     };
 
@@ -60,9 +60,10 @@ export default function AdminReEntry() {
             setQrValue(token);
             setTimeLeft(300);
 
-        } catch (err: any) {
+        } catch (error: unknown) {
+            const err = error as Error;
             console.error(err);
-            setError(err.message || 'Token oluşturulamadı');
+            setError(err.message || 'Giriş işlemi başarısız.');
         } finally {
             setLoading(false);
         }

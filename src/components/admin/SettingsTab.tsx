@@ -32,7 +32,7 @@ export default function SettingsTab() {
             await updateSystemSetting('clinic_location_lng', settings.clinic_location_lng);
             setMsg('Ayarlar başarıyla kaydedildi.');
             setTimeout(() => setMsg(''), 3000);
-        } catch (e) {
+        } catch {
             setMsg('Hata oluştu.');
         } finally {
             setLoading(false);

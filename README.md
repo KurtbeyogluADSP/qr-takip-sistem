@@ -10,7 +10,7 @@ Diş kliniği personel giriş-çıkış takip sistemi.
 - Sabah giriş, akşam çıkış için okutulur
 
 ### Admin Paneli (`/admin`)
-- **Giriş:** `admin` / `dtberk123`
+- **Giriş:** `admin` / `admindtberk123`
 - Kullanıcı ekleme/düzenleme/silme ve Kiosk yönetimi
 - Çalışan için giriş QR oluşturma
 - Aylık çalışma analizleri ve raporlar
@@ -22,14 +22,12 @@ Diş kliniği personel giriş-çıkış takip sistemi.
 
 ## Akış
 
-```
 1. Admin kullanıcı oluşturur
 2. Admin, çalışan için giriş QR oluşturur
 3. Çalışan telefonundan QR okutarak GİRER (tek seferlik)
 4. Artık o telefon o çalışana bağlı - başkası kullanamaz
 5. Her gün resepsiyondaki QR'ı okutarak giriş/çıkış yapar
 6. Kamera sorunu varsa "Kameram Çalışmıyor" diyerek ekrandaki sayıyı seçer
-```
 
 ## Hata Durumları
 

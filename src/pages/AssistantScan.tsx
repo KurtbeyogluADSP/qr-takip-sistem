@@ -19,6 +19,7 @@ export default function AssistantScan() {
     const [manualOptions, setManualOptions] = useState<string[]>([]);
     const [activeTokenForManual, setActiveTokenForManual] = useState<string | null>(null);
 
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
     const handleKioskScan = async (result: any) => {
         if (!result) return;
 
@@ -50,9 +51,10 @@ export default function AssistantScan() {
             // 3. Yeni token oluştur (Kiosk polling ile algılayacak)
             await regenerateKioskToken();
 
-        } catch (error: any) {
+        } catch (error: unknown) {
             console.error(error);
-            setMessage({ type: 'error', text: error.message || 'QR okuma hatası.' });
+            const err = error as Error;
+            setMessage({ type: 'error', text: err.message || 'QR okuma hatası.' });
             window.scrollTo({ top: 0, behavior: 'smooth' });
         } finally {
             setLoading(false);
@@ -104,11 +106,12 @@ export default function AssistantScan() {
                 text: type === 'check_in' ? `Hoş geldin ${selectedUserName}, giriş başarılı!` : `Güle güle ${selectedUserName}, çıkış yapıldı.`
             });
 
-        } catch (error: any) {
-            if (error.message === "KULLANICI_SILINMIS") {
+        } catch (error: unknown) {
+            const err = error as Error;
+            if (err.message === "KULLANICI_SILINMIS") {
                 setMessage({ type: 'check_in_error', text: 'Kullanıcı kaydı bulunamadı. Lütfen çıkış yapın.' });
             } else {
-                throw error;
+                throw err;
             }
         }
     };
@@ -157,8 +160,9 @@ export default function AssistantScan() {
             setManualOptions(generateRandomOptions(validCodes));
             setManualEntryMode(true);
 
-        } catch (error: any) {
-            setMessage({ type: 'error', text: error.message || 'Manuel giriş verisi alınamadı.' });
+        } catch (error: unknown) {
+            const err = error as Error;
+            setMessage({ type: 'error', text: err.message || 'Manuel giriş verisi alınamadı.' });
         } finally {
             setLoading(false);
         }
@@ -190,8 +194,9 @@ export default function AssistantScan() {
                 await processAttendance(scanMode!);
                 setManualEntryMode(false);
                 setActiveTokenForManual(null);
-            } catch (error: any) {
-                setMessage({ type: 'error', text: error.message });
+            } catch (error: unknown) {
+                const err = error as Error;
+                setMessage({ type: 'error', text: err.message });
                 window.scrollTo({ top: 0, behavior: 'smooth' });
             }
         } else {

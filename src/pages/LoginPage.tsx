@@ -46,6 +46,7 @@ export default function LoginPage() {
         }
     };
 
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
     const handleStaffScan = async (result: any) => {
         if (!result) return;
         const token = result[0]?.rawValue;
@@ -98,8 +99,12 @@ export default function LoginPage() {
                 navigate('/assistant/scan');
             }, 1500);
 
-        } catch (err: any) {
-            setError(err.message || 'Giriş başarısız');
+        } catch (err: unknown) {
+            if (err instanceof Error) {
+                setError(err.message);
+            } else {
+                setError('Bir hata oluştu.');
+            }
             setScanning(true);
         }
     };

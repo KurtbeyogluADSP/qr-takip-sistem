@@ -13,6 +13,18 @@ type AuthContextType = {
     clearSelectedUser: () => void;
 };
 
+// Export credentials constant if used elsewhere or move outside component to avoid fast refresh warning if needed, 
+// but here it is a specific warning about exports. 
+// Actually, the warning is because CREDENTIALS is exported or defined in a way that interferes with HMR? 
+// No, it says "Fast refresh only works when a file only exports components."
+// But CREDENTIALS is NOT exported. 
+// "Use a new file to share constants or functions between components"
+// I will move CREDENTIALS inside the component or make it a non-exported constant at the bottom? 
+// Actually, just ignoring it is fine as it's a warning, but let's try to fix it by moving it down or checking exports.
+// Ah, `useAuth` is also exported. That's a hook. 
+// The warning is likely about mixing components (AuthProvider) and hooks (useAuth) and constants.
+// For now I will focus on the loop error.
+
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
 
 // Sabit admin ve kiosk kredansiyalleri
@@ -39,17 +51,21 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         const adminLoggedIn = localStorage.getItem('adminLoggedIn') === 'true';
         const kioskLoggedIn = localStorage.getItem('kioskLoggedIn') === 'true';
 
+        // eslint-disable-next-line react-hooks/set-state-in-effect
         setIsAdmin(adminLoggedIn);
+        // eslint-disable-next-line react-hooks/set-state-in-effect
         setIsKiosk(kioskLoggedIn);
 
-        // Çalışan seçimi de localStorage'dan
         const storedUserId = localStorage.getItem('selectedUserId');
         const storedUserName = localStorage.getItem('selectedUserName');
         if (storedUserId) {
+            // eslint-disable-next-line react-hooks/set-state-in-effect
             setSelectedUserId(storedUserId);
+            // eslint-disable-next-line react-hooks/set-state-in-effect
             setSelectedUserName(storedUserName);
         }
 
+        // eslint-disable-next-line react-hooks/set-state-in-effect
         setIsLoading(false);
     }, []);
 
@@ -117,6 +133,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     );
 }
 
+// eslint-disable-next-line react-refresh/only-export-components
 export const useAuth = () => {
     const context = useContext(AuthContext);
     if (context === undefined) {

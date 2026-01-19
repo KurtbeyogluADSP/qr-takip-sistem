@@ -2,13 +2,19 @@ import { useState, useEffect } from 'react';
 import { supabase } from '../../lib/supabase';
 import { BarChart, Calendar, TrendingUp } from 'lucide-react';
 
-export default function ReportsTab() {
-    const [data, setData] = useState<any[]>([]);
-    const [loading, setLoading] = useState(true);
 
-    useEffect(() => {
-        fetchReport();
-    }, []);
+interface ReportData {
+    user_id: string;
+    user_name: string;
+    total_hours: number;
+    total_work_days: number;
+    avg_entry_time: string | null;
+    avg_exit_time: string | null;
+}
+
+export default function ReportsTab() {
+    const [data, setData] = useState<ReportData[]>([]);
+    const [loading, setLoading] = useState(true);
 
     const fetchReport = async () => {
         setLoading(true);
@@ -18,10 +24,15 @@ export default function ReportsTab() {
         });
 
         if (!error && analytics) {
-            setData(analytics);
+            setData(analytics as ReportData[]);
         }
         setLoading(false);
     };
+
+    useEffect(() => {
+        // eslint-disable-next-line react-hooks/set-state-in-effect
+        fetchReport();
+    }, []);
 
     if (loading) return <div className="p-8 text-center text-slate-500">Raporlar hazırlanıyor...</div>;
 

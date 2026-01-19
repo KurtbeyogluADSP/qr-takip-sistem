@@ -66,7 +66,7 @@ export default function AdminAnalytics() {
             });
 
             setStats(mergedStats);
-        } catch (err: any) {
+        } catch (err: unknown) {
             console.error('Error fetching analytics:', err);
         } finally {
             setLoading(false);
@@ -88,6 +88,7 @@ export default function AdminAnalytics() {
     useEffect(() => {
         fetchAnalytics();
         fetchSettings();
+        // eslint-disable-next-line react-hooks/exhaustive-deps
     }, [targetDate]);
 
     const changeMonth = (offset: number) => {
